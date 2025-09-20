@@ -9,9 +9,6 @@
     <Copyright>Copyright (c) 2024 OpenAI (https://openai.com)</Copyright>
 
     <VersionPrefix>2.4.0</VersionPrefix>
-    <VersionSuffix></VersionSuffix>
-
-    <TargetFrameworks>net8.0;netstandard2.0</TargetFrameworks>
     <LangVersion>latest</LangVersion>
 
     <!-- Generate an XML documentation file for the project. -->
@@ -47,6 +44,8 @@
 
     <IsTrimmable Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">true</IsTrimmable>
     <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>disable</Nullable>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' != 'Unsigned'">
