@@ -112,7 +112,7 @@ public partial class OpenAIClient
     /// <param name="credential"> The <see cref="ApiKeyCredential"/> to authenticate with the service. </param>
     /// <param name="options"> The options to configure the client. </param>
     /// <exception cref="ArgumentNullException"> <paramref name="credential"/> is null. </exception>
-    public OpenAIClient(ApiKeyCredential credential, OpenAIClientOptions options) : this(OpenAIClient.CreateApiKeyAuthenticationPolicy(credential), options)
+    public OpenAIClient(ApiKeyCredential credential, OpenAIClientOptions options) : this(CreateApiKeyAuthenticationPolicy(credential), options)
     {
         _keyCredential = credential;
     }
@@ -137,8 +137,8 @@ public partial class OpenAIClient
         Argument.AssertNotNull(authenticationPolicy, nameof(authenticationPolicy));
         options ??= new OpenAIClientOptions();
 
-        Pipeline = OpenAIClient.CreatePipeline(authenticationPolicy, options);
-        _endpoint = OpenAIClient.GetEndpoint(options);
+        Pipeline = CreatePipeline(authenticationPolicy, options);
+        _endpoint = GetEndpoint(options);
         _options = options;
     }
 
@@ -153,7 +153,7 @@ public partial class OpenAIClient
         options ??= new OpenAIClientOptions();
 
         Pipeline = pipeline;
-        _endpoint = OpenAIClient.GetEndpoint(options);
+        _endpoint = GetEndpoint(options);
         _options = options;
     }
 

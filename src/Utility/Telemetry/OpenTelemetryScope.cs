@@ -91,7 +91,7 @@ internal class OpenTelemetryScope : IDisposable
         RecordMetrics(null, errorType, null, null);
         if (_activity?.IsAllDataRequested == true)
         {
-            _activity?.SetTag(OpenTelemetryConstants.ErrorTypeKey, errorType);
+            _activity?.SetTag(ErrorTypeKey, errorType);
             _activity?.SetStatus(ActivityStatusCode.Error, ex?.Message ?? errorType);
         }
     }

@@ -7,9 +7,9 @@ namespace OpenAI.FineTuning;
 public readonly partial struct FineTuningStatus : IEquatable<string>
 {
     public bool InProgress =>
-        _value == FineTuningStatus.ValidatingFiles ||
-        _value == FineTuningStatus.Queued ||
-        _value == FineTuningStatus.Running;
+        _value == ValidatingFiles ||
+        _value == Queued ||
+        _value == Running;
 
     public bool Equals(string other)
     {
