@@ -1,5 +1,44 @@
 # Release History
 
+## 2.6.0-beta.1 (Unreleased)
+
+### Acknowledgments
+
+Thank you to our developer community members who helped to make the OpenAI client library better with their contributions to this release:
+
+- Maksim Kurnakov _([GitHub](https://github.com/kurnakovv))_
+- Benjamin Pinter _([GitHub](https://github.com/BenjaminDavidPinter))_
+
+### Features Added
+
+- OpenAI.Chat:
+  - Added the `Minimal` property to `ChatReasoningEffortLevel`_(A community contribution, courtesy of [kurnakovv](https://github.com/kurnakovv))_
+
+- OpenAI.Responses:
+  - Added the `Minimal` property to `ResponseReasoningEffortLevel` _(A community contribution, courtesy of [kurnakovv](https://github.com/kurnakovv))_
+  - Added the `Model` property to `OpenAIResponseClient`  _(A community contribution, courtesy of [BenjaminDavidPinter](https://github.com/BenjaminDavidPinter))_
+
+## 2.5.0 (2025-09-23)
+
+### Features Added
+
+- OpenAI.Responses:
+  - Added the `Model` property to `OpenAIResponseClient`.
+  - Added the `ServiceDescription` property to `McpTool`.
+  - Enabled support for connectors, which are OpenAI-maintained MCP wrappers for popular services like Microsoft Outlook or Dropbox.
+    - Added the `ConnectorId` property to `McpTool`.
+  - Enabled support for authentication with remote MCP servers.
+    - Added the `AuthorizationToken` property to `McpTool`.
+  - Enabled support for the Code Interpreter tool, which allows models to write and run Python code in a sandboxed environment to solve complex problems in domains like data analysis, coding, and math.
+    - Users can add the new `CodeInterpreterTool` to the `Tools` property of their `ResponseCreationOptions` and configure it.
+      - Use the `Container` property to configure the sandboxed environment, including any files that should be made available.
+
+### Bugs Fixed
+
+- OpenAI.Responses:
+  - Fixed an issue with the constructor of `McpToolCallApprovalRequestItem` not taking the item ID as a parameter. MCP approval requests are correlated to MCP approval responses using this ID, which implies that this ID should be required.
+  - Fixed an issue with some of the MCP-related `StreamingResponseUpdate` classes missing the `ItemId` and `OutputIndex` properties.
+
 ## 2.4.0 (2025-09-05)
 
 ### Features Added
