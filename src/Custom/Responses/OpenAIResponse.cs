@@ -63,10 +63,10 @@ public partial class OpenAIResponse
 
     public string GetOutputText()
     {
-        IEnumerable<string> outputTextSegments = OutputItems.Where(item => item is MessageResponseItem)
-            .Select(item => item as MessageResponseItem)
+        IEnumerable<string> outputTextSegments = OutputItems
+            .OfType<MessageResponseItem>()
             .SelectMany(message => message.Content.Where(contentPart => contentPart.Kind == ResponseContentPartKind.OutputText)
-                .Select(outputTextPart => outputTextPart.Text));
+                .Select(outputTextPart => outputTextPart.Text)).ToList();
         return outputTextSegments.Any() ? string.Concat(outputTextSegments) : null;
     }
 }
