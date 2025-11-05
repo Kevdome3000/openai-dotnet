@@ -76,7 +76,7 @@ namespace OpenAI
             {
                 "U" => TypeFormatters.FromBase64UrlString(element.GetRequiredString()),
                 "D" => element.GetBytesFromBase64(),
-                _ => throw new ArgumentException($"Format is not supported: '{format}'", nameof(format))
+                _ => throw new ArgumentException($@"Format is not supported: '{format}'", nameof(format))
             };
         }
 
@@ -157,7 +157,7 @@ namespace OpenAI
                     writer.WriteBase64StringValue(value);
                     break;
                 default:
-                    throw new ArgumentException($"Format is not supported: '{format}'", nameof(format));
+                    throw new ArgumentException($@"Format is not supported: '{format}'", nameof(format));
             }
         }
 

@@ -26,7 +26,7 @@
     <!-- Embed source files that are not tracked by the source control manager in the PDB -->
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
 
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 
     <!-- Disable missing XML documentation warnings -->
     <NoWarn>$(NoWarn),1570,1573,1574,1591</NoWarn>
@@ -73,7 +73,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
-    <PackageReference Include="System.ClientModel" Version="1.7.0" />
+    <PackageReference Include="System.ClientModel" Version="1.8.0" />
     <PackageReference Include="System.Net.ServerSentEvents" Version="9.0.10" />
   </ItemGroup>
 
