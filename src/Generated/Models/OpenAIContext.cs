@@ -8,6 +8,7 @@ using OpenAI.Audio;
 using OpenAI.Batch;
 using OpenAI.Chat;
 using OpenAI.Containers;
+using OpenAI.Conversations;
 using OpenAI.Embeddings;
 using OpenAI.Evals;
 using OpenAI.Files;
@@ -21,6 +22,7 @@ using OpenAI.Moderations;
 using OpenAI.Realtime;
 using OpenAI.Responses;
 using OpenAI.VectorStores;
+using OpenAI.Videos;
 
 namespace OpenAI
 {
@@ -38,6 +40,8 @@ namespace OpenAI
     [ModelReaderWriterBuildable(typeof(AudioTranslation))]
     [ModelReaderWriterBuildable(typeof(AudioTranslationOptions))]
     [ModelReaderWriterBuildable(typeof(AutomaticCodeInterpreterToolContainerConfiguration))]
+    [ModelReaderWriterBuildable(typeof(BatchCollectionOptions))]
+    [ModelReaderWriterBuildable(typeof(BatchJob))]
     [ModelReaderWriterBuildable(typeof(ChatAudioOptions))]
     [ModelReaderWriterBuildable(typeof(ChatCompletion))]
     [ModelReaderWriterBuildable(typeof(ChatCompletionCollectionOptions))]
@@ -80,6 +84,7 @@ namespace OpenAI
     [ModelReaderWriterBuildable(typeof(ComputerCallSafetyCheck))]
     [ModelReaderWriterBuildable(typeof(ComputerTool))]
     [ModelReaderWriterBuildable(typeof(ContainerCollectionOptions))]
+    [ModelReaderWriterBuildable(typeof(ContainerFileCitationMessageAnnotation))]
     [ModelReaderWriterBuildable(typeof(ContainerFileCollectionOptions))]
     [ModelReaderWriterBuildable(typeof(ContainerFileResource))]
     [ModelReaderWriterBuildable(typeof(ContainerResource))]
@@ -168,7 +173,6 @@ namespace OpenAI
     [ModelReaderWriterBuildable(typeof(InternalAutoChunkingStrategyRequestParam))]
     [ModelReaderWriterBuildable(typeof(InternalBatchError))]
     [ModelReaderWriterBuildable(typeof(InternalBatchErrors))]
-    [ModelReaderWriterBuildable(typeof(InternalBatchJob))]
     [ModelReaderWriterBuildable(typeof(InternalBatchRequestCounts))]
     [ModelReaderWriterBuildable(typeof(InternalBatchRequestInput))]
     [ModelReaderWriterBuildable(typeof(InternalBatchRequestOutput))]
@@ -223,6 +227,7 @@ namespace OpenAI
     [ModelReaderWriterBuildable(typeof(InternalComputerUsePreviewToolCallOutputItemParam))]
     [ModelReaderWriterBuildable(typeof(InternalContainerFileListResource))]
     [ModelReaderWriterBuildable(typeof(InternalContainerListResource))]
+    [ModelReaderWriterBuildable(typeof(InternalConversationItemCollectionOptions))]
     [ModelReaderWriterBuildable(typeof(InternalCoordinate))]
     [ModelReaderWriterBuildable(typeof(InternalCreateAssistantRequestToolResources))]
     [ModelReaderWriterBuildable(typeof(InternalCreateAssistantRequestToolResourcesCodeInterpreter))]
@@ -618,6 +623,7 @@ namespace OpenAI
     [ModelReaderWriterBuildable(typeof(InternalVectorStoreSearchResultsPage))]
     [ModelReaderWriterBuildable(typeof(InternalWebSearchLocation))]
     [ModelReaderWriterBuildable(typeof(InternalWebSearchToolCallItemParam))]
+    [ModelReaderWriterBuildable(typeof(InternaVideoCollectionOptions))]
     [ModelReaderWriterBuildable(typeof(ItemCreatedUpdate))]
     [ModelReaderWriterBuildable(typeof(ItemDeletedUpdate))]
     [ModelReaderWriterBuildable(typeof(ItemRetrievedUpdate))]

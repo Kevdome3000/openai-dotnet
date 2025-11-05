@@ -20,6 +20,8 @@ namespace OpenAI {
         public virtual ChatClient GetChatClient(string model);
         [Experimental("OPENAI001")]
         public virtual ContainerClient GetContainerClient();
+        [Experimental("OPENAI001")]
+        public virtual ConversationClient GetConversationClient();
         public virtual EmbeddingClient GetEmbeddingClient(string model);
         [Experimental("OPENAI001")]
         public virtual EvaluationClient GetEvaluationClient();
@@ -37,6 +39,8 @@ namespace OpenAI {
         public virtual RealtimeClient GetRealtimeClient();
         [Experimental("OPENAI001")]
         public virtual VectorStoreClient GetVectorStoreClient();
+        [Experimental("OPENAI001")]
+        public virtual VideoClient GetVideoClient();
     }
     public class OpenAIClientOptions : ClientPipelineOptions {
         public Uri Endpoint { get; set; }
@@ -1346,7 +1350,6 @@ namespace OpenAI.Audio {
     public class StreamingAudioTranscriptionUpdate : IJsonModel<StreamingAudioTranscriptionUpdate>, IPersistableModel<StreamingAudioTranscriptionUpdate> {
         protected virtual StreamingAudioTranscriptionUpdate JsonModelCreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options);
         protected virtual void JsonModelWriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options);
-        public static explicit operator StreamingAudioTranscriptionUpdate(ClientResult result);
         protected virtual StreamingAudioTranscriptionUpdate PersistableModelCreateCore(BinaryData data, ModelReaderWriterOptions options);
         protected virtual BinaryData PersistableModelWriteCore(ModelReaderWriterOptions options);
     }
@@ -1401,8 +1404,44 @@ namespace OpenAI.Batch {
         public virtual Task<CreateBatchOperation> CreateBatchAsync(BinaryContent content, bool waitUntilCompleted, RequestOptions options = null);
         public virtual ClientResult GetBatch(string batchId, RequestOptions options);
         public virtual Task<ClientResult> GetBatchAsync(string batchId, RequestOptions options);
+        public virtual CollectionResult<BatchJob> GetBatches(BatchCollectionOptions options = null, CancellationToken cancellationToken = default);
         public virtual CollectionResult GetBatches(string after, int? limit, RequestOptions options);
+        public virtual AsyncCollectionResult<BatchJob> GetBatchesAsync(BatchCollectionOptions options = null, CancellationToken cancellationToken = default);
         public virtual AsyncCollectionResult GetBatchesAsync(string after, int? limit, RequestOptions options);
+    }
+    [Experimental("OPENAI001")]
+    public class BatchCollectionOptions : IJsonModel<BatchCollectionOptions>, IPersistableModel<BatchCollectionOptions> {
+        public string AfterId { get; set; }
+        public int? PageSizeLimit { get; set; }
+        protected virtual BatchCollectionOptions JsonModelCreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options);
+        protected virtual void JsonModelWriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options);
+        protected virtual BatchCollectionOptions PersistableModelCreateCore(BinaryData data, ModelReaderWriterOptions options);
+        protected virtual BinaryData PersistableModelWriteCore(ModelReaderWriterOptions options);
+    }
+    [Experimental("OPENAI001")]
+    public class BatchJob : IJsonModel<BatchJob>, IPersistableModel<BatchJob> {
+        public DateTimeOffset? CancelledAt { get; }
+        public DateTimeOffset? CancellingAt { get; }
+        public DateTimeOffset? CompletedAt { get; }
+        public string CompletionWindow { get; }
+        public DateTimeOffset CreatedAt { get; }
+        public string Endpoint { get; }
+        public string ErrorFileId { get; }
+        public DateTimeOffset? ExpiredAt { get; }
+        public DateTimeOffset? ExpiresAt { get; }
+        public DateTimeOffset? FailedAt { get; }
+        public DateTimeOffset? FinalizingAt { get; }
+        public string Id { get; }
+        public DateTimeOffset? InProgressAt { get; }
+        public string InputFileId { get; }
+        public IDictionary<string, string> Metadata { get; }
+        public string Object { get; }
+        public string OutputFileId { get; }
+        protected virtual BatchJob JsonModelCreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options);
+        protected virtual void JsonModelWriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options);
+        public static explicit operator BatchJob(ClientResult result);
+        protected virtual BatchJob PersistableModelCreateCore(BinaryData data, ModelReaderWriterOptions options);
+        protected virtual BinaryData PersistableModelWriteCore(ModelReaderWriterOptions options);
     }
     [Experimental("OPENAI001")]
     public class CreateBatchOperation : OperationResult {
@@ -2233,6 +2272,7 @@ namespace OpenAI.Chat {
         public static ChatCompletion ChatCompletion(string id = null, ChatFinishReason finishReason = ChatFinishReason.Stop, ChatMessageContent content = null, string refusal = null, IEnumerable<ChatToolCall> toolCalls = null, ChatMessageRole role = ChatMessageRole.System, ChatFunctionCall functionCall = null, IEnumerable<ChatTokenLogProbabilityDetails> contentTokenLogProbabilities = null, IEnumerable<ChatTokenLogProbabilityDetails> refusalTokenLogProbabilities = null, DateTimeOffset createdAt = default, string model = null, ChatServiceTier? serviceTier = null, string systemFingerprint = null, ChatTokenUsage usage = null, ChatOutputAudio outputAudio = null, IEnumerable<ChatMessageAnnotation> messageAnnotations = null);
         [EditorBrowsable(EditorBrowsableState.Never)]
         public static ChatCompletion ChatCompletion(string id, ChatFinishReason finishReason, ChatMessageContent content, string refusal, IEnumerable<ChatToolCall> toolCalls, ChatMessageRole role, ChatFunctionCall functionCall, IEnumerable<ChatTokenLogProbabilityDetails> contentTokenLogProbabilities, IEnumerable<ChatTokenLogProbabilityDetails> refusalTokenLogProbabilities, DateTimeOffset createdAt, string model, string systemFingerprint, ChatTokenUsage usage);
+        [Experimental("OPENAI001")]
         public static ChatCompletionMessageListDatum ChatCompletionMessageListDatum(string id, string content, string refusal, ChatMessageRole role, IList<ChatMessageContentPart> contentParts = null, IList<ChatToolCall> toolCalls = null, IList<ChatMessageAnnotation> annotations = null, string functionName = null, string functionArguments = null, ChatOutputAudio outputAudio = null);
         public static ChatInputTokenUsageDetails ChatInputTokenUsageDetails(int audioTokenCount = 0, int cachedTokenCount = 0);
         [Experimental("OPENAI001")]
@@ -2409,6 +2449,10 @@ namespace OpenAI.Containers {
         public virtual ClientResult<DeleteContainerFileResponse> DeleteContainerFile(string containerId, string fileId, CancellationToken cancellationToken = default);
         public virtual Task<ClientResult> DeleteContainerFileAsync(string containerId, string fileId, RequestOptions options);
         public virtual Task<ClientResult<DeleteContainerFileResponse>> DeleteContainerFileAsync(string containerId, string fileId, CancellationToken cancellationToken = default);
+        public virtual ClientResult DownloadContainerFile(string containerId, string fileId, RequestOptions options);
+        public virtual ClientResult<BinaryData> DownloadContainerFile(string containerId, string fileId, CancellationToken cancellationToken = default);
+        public virtual Task<ClientResult> DownloadContainerFileAsync(string containerId, string fileId, RequestOptions options);
+        public virtual Task<ClientResult<BinaryData>> DownloadContainerFileAsync(string containerId, string fileId, CancellationToken cancellationToken = default);
         public virtual ClientResult GetContainer(string containerId, RequestOptions options);
         public virtual ClientResult<ContainerResource> GetContainer(string containerId, CancellationToken cancellationToken = default);
         public virtual Task<ClientResult> GetContainerAsync(string containerId, RequestOptions options);
@@ -2417,10 +2461,6 @@ namespace OpenAI.Containers {
         public virtual ClientResult<ContainerFileResource> GetContainerFile(string containerId, string fileId, CancellationToken cancellationToken = default);
         public virtual Task<ClientResult> GetContainerFileAsync(string containerId, string fileId, RequestOptions options);
         public virtual Task<ClientResult<ContainerFileResource>> GetContainerFileAsync(string containerId, string fileId, CancellationToken cancellationToken = default);
-        public virtual ClientResult GetContainerFileContent(string containerId, string fileId, RequestOptions options);
-        public virtual ClientResult<BinaryData> GetContainerFileContent(string containerId, string fileId, CancellationToken cancellationToken = default);
-        public virtual Task<ClientResult> GetContainerFileContentAsync(string containerId, string fileId, RequestOptions options);
-        public virtual Task<ClientResult<BinaryData>> GetContainerFileContentAsync(string containerId, string fileId, CancellationToken cancellationToken = default);
         public virtual CollectionResult<ContainerFileResource> GetContainerFiles(string containerId, ContainerFileCollectionOptions options = null, CancellationToken cancellationToken = default);
         public virtual CollectionResult GetContainerFiles(string containerId, int? limit, string order, string after, RequestOptions options);
         public virtual AsyncCollectionResult<ContainerFileResource> GetContainerFilesAsync(string containerId, ContainerFileCollectionOptions options = null, CancellationToken cancellationToken = default);
@@ -2556,6 +2596,59 @@ namespace OpenAI.Containers {
         public static explicit operator DeleteContainerResponse(ClientResult result);
         protected virtual DeleteContainerResponse PersistableModelCreateCore(BinaryData data, ModelReaderWriterOptions options);
         protected virtual BinaryData PersistableModelWriteCore(ModelReaderWriterOptions options);
+    }
+}
+namespace OpenAI.Conversations {
+    [Experimental("OPENAI001")]
+    public class ConversationClient {
+        protected ConversationClient();
+        public ConversationClient(ApiKeyCredential credential, OpenAIClientOptions options);
+        public ConversationClient(ApiKeyCredential credential);
+        public ConversationClient(AuthenticationPolicy authenticationPolicy, OpenAIClientOptions options);
+        public ConversationClient(AuthenticationPolicy authenticationPolicy);
+        protected internal ConversationClient(ClientPipeline pipeline, OpenAIClientOptions options);
+        public ConversationClient(string apiKey);
+        [Experimental("OPENAI001")]
+        public Uri Endpoint { get; }
+        public ClientPipeline Pipeline { get; }
+        public virtual ClientResult CreateConversation(BinaryContent content, RequestOptions options = null);
+        public virtual Task<ClientResult> CreateConversationAsync(BinaryContent content, RequestOptions options = null);
+        public virtual ClientResult CreateConversationItems(string conversationId, BinaryContent content, IEnumerable<IncludedConversationItemProperty> include = null, RequestOptions options = null);
+        public virtual Task<ClientResult> CreateConversationItemsAsync(string conversationId, BinaryContent content, IEnumerable<IncludedConversationItemProperty> include = null, RequestOptions options = null);
+        public virtual ClientResult DeleteConversation(string conversationId, RequestOptions options = null);
+        public virtual Task<ClientResult> DeleteConversationAsync(string conversationId, RequestOptions options = null);
+        public virtual ClientResult DeleteConversationItem(string conversationId, string itemId, RequestOptions options = null);
+        public virtual Task<ClientResult> DeleteConversationItemAsync(string conversationId, string itemId, RequestOptions options = null);
+        public virtual ClientResult GetConversation(string conversationId, RequestOptions options = null);
+        public virtual Task<ClientResult> GetConversationAsync(string conversationId, RequestOptions options = null);
+        public virtual ClientResult GetConversationItem(string conversationId, string itemId, IEnumerable<IncludedConversationItemProperty> include = null, RequestOptions options = null);
+        public virtual Task<ClientResult> GetConversationItemAsync(string conversationId, string itemId, IEnumerable<IncludedConversationItemProperty> include = null, RequestOptions options = null);
+        public virtual CollectionResult GetConversationItems(string conversationId, long? limit = null, string order = null, string after = null, IEnumerable<IncludedConversationItemProperty> include = null, RequestOptions options = null);
+        public virtual AsyncCollectionResult GetConversationItemsAsync(string conversationId, long? limit = null, string order = null, string after = null, IEnumerable<IncludedConversationItemProperty> include = null, RequestOptions options = null);
+        public virtual ClientResult UpdateConversation(string conversationId, BinaryContent content, RequestOptions options = null);
+        public virtual Task<ClientResult> UpdateConversationAsync(string conversationId, BinaryContent content, RequestOptions options = null);
+    }
+    [Experimental("OPENAI001")]
+    public readonly partial struct IncludedConversationItemProperty : IEquatable<IncludedConversationItemProperty> {
+        public IncludedConversationItemProperty(string value);
+        public static IncludedConversationItemProperty CodeInterpreterCallOutputs { get; }
+        public static IncludedConversationItemProperty ComputerCallOutputImageUri { get; }
+        public static IncludedConversationItemProperty FileSearchCallResults { get; }
+        public static IncludedConversationItemProperty MessageInputImageUri { get; }
+        public static IncludedConversationItemProperty MessageOutputTextLogprobs { get; }
+        public static IncludedConversationItemProperty ReasoningEncryptedContent { get; }
+        public static IncludedConversationItemProperty WebSearchCallActionSources { get; }
+        public static IncludedConversationItemProperty WebSearchCallResults { get; }
+        public readonly bool Equals(IncludedConversationItemProperty other);
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override readonly bool Equals(object obj);
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override readonly int GetHashCode();
+        public static bool operator ==(IncludedConversationItemProperty left, IncludedConversationItemProperty right);
+        public static implicit operator IncludedConversationItemProperty(string value);
+        public static implicit operator IncludedConversationItemProperty?(string value);
+        public static bool operator !=(IncludedConversationItemProperty left, IncludedConversationItemProperty right);
+        public override readonly string ToString();
     }
 }
 namespace OpenAI.Embeddings {
@@ -4947,6 +5040,19 @@ namespace OpenAI.Responses {
         public override readonly string ToString();
     }
     [Experimental("OPENAI001")]
+    public class ContainerFileCitationMessageAnnotation : ResponseMessageAnnotation, IJsonModel<ContainerFileCitationMessageAnnotation>, IPersistableModel<ContainerFileCitationMessageAnnotation> {
+        public ContainerFileCitationMessageAnnotation(string containerId, string fileId, int startIndex, int endIndex, string filename);
+        public string ContainerId { get; set; }
+        public int EndIndex { get; set; }
+        public string FileId { get; set; }
+        public string Filename { get; set; }
+        public int StartIndex { get; set; }
+        protected override ResponseMessageAnnotation JsonModelCreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options);
+        protected override void JsonModelWriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options);
+        protected override ResponseMessageAnnotation PersistableModelCreateCore(BinaryData data, ModelReaderWriterOptions options);
+        protected override BinaryData PersistableModelWriteCore(ModelReaderWriterOptions options);
+    }
+    [Experimental("OPENAI001")]
     public class CustomMcpToolCallApprovalPolicy : IJsonModel<CustomMcpToolCallApprovalPolicy>, IPersistableModel<CustomMcpToolCallApprovalPolicy> {
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Experimental("SCME0001")]
@@ -5117,8 +5223,8 @@ namespace OpenAI.Responses {
     }
     [Experimental("OPENAI001")]
     public class ImageGenerationCallResponseItem : ResponseItem, IJsonModel<ImageGenerationCallResponseItem>, IPersistableModel<ImageGenerationCallResponseItem> {
-        public ImageGenerationCallResponseItem(BinaryData generatedImageBytes);
-        public BinaryData GeneratedImageBytes { get; set; }
+        public ImageGenerationCallResponseItem(BinaryData imageResultBytes);
+        public BinaryData ImageResultBytes { get; set; }
         public ImageGenerationCallStatus? Status { get; }
         protected override ResponseItem JsonModelCreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options);
         protected override void JsonModelWriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options);
@@ -5136,7 +5242,7 @@ namespace OpenAI.Responses {
     public class ImageGenerationTool : ResponseTool, IJsonModel<ImageGenerationTool>, IPersistableModel<ImageGenerationTool> {
         public ImageGenerationTool();
         public ImageGenerationToolBackground? Background { get; set; }
-        public ImageGenerationToolInputFidelityLevel? InputFidelityLevel { get; set; }
+        public ImageGenerationToolInputFidelity? InputFidelity { get; set; }
         public ImageGenerationToolInputImageMask InputImageMask { get; set; }
         public string Model { get; set; }
         public ImageGenerationToolModerationLevel? ModerationLevel { get; set; }
@@ -5168,19 +5274,19 @@ namespace OpenAI.Responses {
         public override readonly string ToString();
     }
     [Experimental("OPENAI001")]
-    public readonly partial struct ImageGenerationToolInputFidelityLevel : IEquatable<ImageGenerationToolInputFidelityLevel> {
-        public ImageGenerationToolInputFidelityLevel(string value);
-        public static ImageGenerationToolInputFidelityLevel High { get; }
-        public static ImageGenerationToolInputFidelityLevel Low { get; }
-        public readonly bool Equals(ImageGenerationToolInputFidelityLevel other);
+    public readonly partial struct ImageGenerationToolInputFidelity : IEquatable<ImageGenerationToolInputFidelity> {
+        public ImageGenerationToolInputFidelity(string value);
+        public static ImageGenerationToolInputFidelity High { get; }
+        public static ImageGenerationToolInputFidelity Low { get; }
+        public readonly bool Equals(ImageGenerationToolInputFidelity other);
         [EditorBrowsable(EditorBrowsableState.Never)]
         public override readonly bool Equals(object obj);
         [EditorBrowsable(EditorBrowsableState.Never)]
         public override readonly int GetHashCode();
-        public static bool operator ==(ImageGenerationToolInputFidelityLevel left, ImageGenerationToolInputFidelityLevel right);
-        public static implicit operator ImageGenerationToolInputFidelityLevel(string value);
-        public static implicit operator ImageGenerationToolInputFidelityLevel?(string value);
-        public static bool operator !=(ImageGenerationToolInputFidelityLevel left, ImageGenerationToolInputFidelityLevel right);
+        public static bool operator ==(ImageGenerationToolInputFidelity left, ImageGenerationToolInputFidelity right);
+        public static implicit operator ImageGenerationToolInputFidelity(string value);
+        public static implicit operator ImageGenerationToolInputFidelity?(string value);
+        public static bool operator !=(ImageGenerationToolInputFidelity left, ImageGenerationToolInputFidelity right);
         public override readonly string ToString();
     }
     [Experimental("OPENAI001")]
@@ -5754,6 +5860,7 @@ namespace OpenAI.Responses {
         public static WebSearchCallResponseItem CreateWebSearchCallItem();
         protected virtual ResponseItem JsonModelCreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options);
         protected virtual void JsonModelWriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options);
+        public static explicit operator ResponseItem(ClientResult result);
         protected virtual ResponseItem PersistableModelCreateCore(BinaryData data, ModelReaderWriterOptions options);
         protected virtual BinaryData PersistableModelWriteCore(ModelReaderWriterOptions options);
     }
@@ -5947,7 +6054,7 @@ namespace OpenAI.Responses {
         public static ComputerTool CreateComputerTool(ComputerToolEnvironment environment, int displayWidth, int displayHeight);
         public static FileSearchTool CreateFileSearchTool(IEnumerable<string> vectorStoreIds, int? maxResultCount = null, FileSearchToolRankingOptions rankingOptions = null, BinaryData filters = null);
         public static FunctionTool CreateFunctionTool(string functionName, BinaryData functionParameters, bool? strictModeEnabled, string functionDescription = null);
-        public static ImageGenerationTool CreateImageGenerationTool(string model, ImageGenerationToolQuality? quality = null, ImageGenerationToolSize? size = null, ImageGenerationToolOutputFileFormat? outputFileFormat = null, int? outputCompressionFactor = null, ImageGenerationToolModerationLevel? moderationLevel = null, ImageGenerationToolBackground? background = null, ImageGenerationToolInputFidelityLevel? inputFidelityLevel = null, ImageGenerationToolInputImageMask inputImageMask = null, int? partialImageCount = null);
+        public static ImageGenerationTool CreateImageGenerationTool(string model, ImageGenerationToolQuality? quality = null, ImageGenerationToolSize? size = null, ImageGenerationToolOutputFileFormat? outputFileFormat = null, int? outputCompressionFactor = null, ImageGenerationToolModerationLevel? moderationLevel = null, ImageGenerationToolBackground? background = null, ImageGenerationToolInputFidelity? inputFidelity = null, ImageGenerationToolInputImageMask inputImageMask = null, int? partialImageCount = null);
         public static McpTool CreateMcpTool(string serverLabel, McpToolConnectorId connectorId, string authorizationToken = null, string serverDescription = null, IDictionary<string, string> headers = null, McpToolFilter allowedTools = null, McpToolCallApprovalPolicy toolCallApprovalPolicy = null);
         public static McpTool CreateMcpTool(string serverLabel, Uri serverUri, string authorizationToken = null, string serverDescription = null, IDictionary<string, string> headers = null, McpToolFilter allowedTools = null, McpToolCallApprovalPolicy toolCallApprovalPolicy = null);
         public static WebSearchTool CreateWebSearchTool(WebSearchToolLocation userLocation = null, WebSearchToolContextSize? searchContextSize = null);
@@ -6814,5 +6921,32 @@ namespace OpenAI.VectorStores {
         InProgress = 1,
         Completed = 2,
         Expired = 3
+    }
+}
+namespace OpenAI.Videos {
+    [Experimental("OPENAI001")]
+    public class VideoClient {
+        protected VideoClient();
+        public VideoClient(ApiKeyCredential credential, OpenAIClientOptions options);
+        public VideoClient(ApiKeyCredential credential);
+        public VideoClient(AuthenticationPolicy authenticationPolicy, OpenAIClientOptions options);
+        public VideoClient(AuthenticationPolicy authenticationPolicy);
+        protected internal VideoClient(ClientPipeline pipeline, OpenAIClientOptions options);
+        public VideoClient(string apiKey);
+        [Experimental("OPENAI001")]
+        public Uri Endpoint { get; }
+        public ClientPipeline Pipeline { get; }
+        public virtual ClientResult CreateVideo(BinaryContent content, string contentType, RequestOptions options = null);
+        public virtual Task<ClientResult> CreateVideoAsync(BinaryContent content, string contentType, RequestOptions options = null);
+        public virtual ClientResult CreateVideoRemix(string videoId, BinaryContent content, string contentType, RequestOptions options = null);
+        public virtual Task<ClientResult> CreateVideoRemixAsync(string videoId, BinaryContent content, string contentType, RequestOptions options = null);
+        public virtual ClientResult DeleteVideo(string videoId, RequestOptions options = null);
+        public virtual Task<ClientResult> DeleteVideoAsync(string videoId, RequestOptions options = null);
+        public virtual ClientResult DownloadVideo(string videoId, string variant = null, RequestOptions options = null);
+        public virtual Task<ClientResult> DownloadVideoAsync(string videoId, string variant = null, RequestOptions options = null);
+        public virtual ClientResult GetVideo(string videoId, RequestOptions options = null);
+        public virtual Task<ClientResult> GetVideoAsync(string videoId, RequestOptions options = null);
+        public virtual CollectionResult GetVideos(long? limit = null, string order = null, string after = null, RequestOptions options = null);
+        public virtual AsyncCollectionResult GetVideosAsync(long? limit = null, string order = null, string after = null, RequestOptions options = null);
     }
 }

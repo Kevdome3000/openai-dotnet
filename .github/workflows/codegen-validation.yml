@@ -6,6 +6,11 @@ on:
   pull_request:
     paths:
       - 'codegen/**'
+      - 'specification/**'
+      - 'src/**'
+      - 'package.json'
+      - 'global.json'
+      - 'package-lock.json'
       - '.github/workflows/codegen-validation.yml'
       - 'scripts/Invoke-CodeGen.ps1'
     types: [opened, reopened, synchronize]
@@ -35,7 +40,7 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "Running code generation validation..."
-          ./scripts/Invoke-CodeGen.ps1
+          ./scripts/Invoke-CodeGen.ps1 -Clean
           
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Code generation failed with exit code: $LASTEXITCODE"
