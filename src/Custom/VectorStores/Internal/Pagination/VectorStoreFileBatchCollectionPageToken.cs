@@ -90,7 +90,7 @@ internal class VectorStoreFileBatchCollectionPageToken : ContinuationToken
 
         if (data.ToMemory().Length == 0)
         {
-            throw new ArgumentException("Failed to create VectorStoreFileBatchesPageToken from provided pageToken.", nameof(pageToken));
+            throw new ArgumentException(@"Failed to create VectorStoreFileBatchesPageToken from provided pageToken.", nameof(pageToken));
         }
 
         Utf8JsonReader reader = new(data);
@@ -163,7 +163,7 @@ internal class VectorStoreFileBatchCollectionPageToken : ContinuationToken
         if (vectorStoreId is null ||
             batchId is null)
         {
-            throw new ArgumentException("Failed to create VectorStoreFileBatchesPageToken from provided pageToken.", nameof(pageToken));
+            throw new ArgumentException(@"Failed to create VectorStoreFileBatchesPageToken from provided pageToken.", nameof(pageToken));
         }
 
         return new(vectorStoreId, batchId, limit, order, after, before, filter);

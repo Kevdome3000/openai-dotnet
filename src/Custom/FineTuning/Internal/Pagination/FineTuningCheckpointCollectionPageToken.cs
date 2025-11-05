@@ -63,7 +63,7 @@ internal class FineTuningCheckpointCollectionPageToken: ContinuationToken
 
         if (data.ToMemory().Length == 0)
         {
-            throw new ArgumentException($"Failed to create {nameof(FineTuningCheckpointCollectionPageToken)} from provided argument.", nameof(pageToken));
+            throw new ArgumentException($@"Failed to create {nameof(FineTuningCheckpointCollectionPageToken)} from provided argument.", nameof(pageToken));
         }
 
         Utf8JsonReader reader = new(data);
@@ -111,7 +111,7 @@ internal class FineTuningCheckpointCollectionPageToken: ContinuationToken
 
         if (jobId is null)
         {
-            throw new ArgumentException($"Failed to create {nameof(FineTuningCheckpointCollectionPageToken)} from provided argument.", nameof(pageToken));
+            throw new ArgumentException($@"Failed to create {nameof(FineTuningCheckpointCollectionPageToken)} from provided argument.", nameof(pageToken));
         }
 
         return new(jobId, limit, after);

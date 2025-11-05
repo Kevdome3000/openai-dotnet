@@ -10,6 +10,7 @@ namespace OpenAI.Assistants;
 /// The update type presented when a streamed event indicates a thread was created.
 /// </summary>
 [Experimental("OPENAI001")]
+[SuppressMessage("Roslynator", "RCS1139:Add summary element to documentation comment")]
 public class ThreadUpdate : StreamingUpdate<AssistantThread>
 {
     /// <see cref="AssistantThread.Id"/>

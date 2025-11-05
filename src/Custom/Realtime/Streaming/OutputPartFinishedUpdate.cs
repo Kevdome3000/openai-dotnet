@@ -10,7 +10,8 @@ namespace OpenAI.Realtime;
 /// This type is a shared representation of the <c>response.function_call_arguments.done</c> and
 /// <c>response.content_part.done</c> response commands.
 /// </remarks>
-[Experimental("OPENAI002")] 
+[Experimental("OPENAI002")]
+[SuppressMessage("Roslynator", "RCS1138:Add summary to documentation comment")]
 public partial class OutputPartFinishedUpdate : RealtimeUpdate
 {
     private readonly InternalRealtimeServerEventResponseContentPartDone _contentPartDone;

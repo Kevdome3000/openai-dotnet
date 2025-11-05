@@ -91,7 +91,7 @@ public partial class HyperparameterBatchSize : IEquatable<int>, IEquatable<strin
         {
             JsonValueKind.Number => new(element.GetInt32()),
             JsonValueKind.String => new(element.GetString()),
-            _ => throw new ArgumentException($"Unsupported JsonValueKind", nameof(HyperparameterBatchSize))
+            _ => throw new ArgumentException($@"Unsupported JsonValueKind", nameof(HyperparameterBatchSize))
         };
     }
 

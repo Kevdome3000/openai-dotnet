@@ -90,7 +90,7 @@ public partial class HyperparameterBetaFactor : IEquatable<int>, IEquatable<stri
         {
             JsonValueKind.Number => new(element.GetInt32()),
             JsonValueKind.String => new(element.GetString()),
-            _ => throw new ArgumentException($"Unsupported JsonValueKind", "beta")
+            _ => throw new ArgumentException($@"Unsupported JsonValueKind", "beta")
         };
     }
 

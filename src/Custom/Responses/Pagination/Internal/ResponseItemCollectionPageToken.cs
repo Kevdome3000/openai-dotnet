@@ -73,7 +73,7 @@ internal class ResponseItemCollectionPageToken : ContinuationToken
 
         if (data.ToMemory().Length == 0)
         {
-            throw new ArgumentException("Failed to create ResponsesItemCollectionPageToken from provided pageToken.", nameof(pageToken));
+            throw new ArgumentException(@"Failed to create ResponsesItemCollectionPageToken from provided pageToken.", nameof(pageToken));
         }
 
         Utf8JsonReader reader = new(data);

@@ -93,7 +93,7 @@ public partial class HyperparameterLearningRate : IEquatable<double>, IEquatable
         {
             JsonValueKind.Number => new(element.GetDouble()),
             JsonValueKind.String => new(element.GetString()),
-            _ => throw new ArgumentException($"Unsupported JsonValueKind", nameof(HyperparameterLearningRate))
+            _ => throw new ArgumentException($@"Unsupported JsonValueKind", nameof(HyperparameterLearningRate))
         };
     }
 

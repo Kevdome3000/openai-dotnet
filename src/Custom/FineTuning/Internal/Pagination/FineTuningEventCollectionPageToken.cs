@@ -63,7 +63,7 @@ internal class FineTuningEventCollectionPageToken : ContinuationToken
 
         if (data.ToMemory().Length == 0)
         {
-            throw new ArgumentException("Failed to create FineTuningEventCollectionPageToken from provided pageToken.", nameof(pageToken));
+            throw new ArgumentException(@"Failed to create FineTuningEventCollectionPageToken from provided pageToken.", nameof(pageToken));
         }
 
         Utf8JsonReader reader = new(data);
@@ -111,7 +111,7 @@ internal class FineTuningEventCollectionPageToken : ContinuationToken
 
         if (jobId is null)
         {
-            throw new ArgumentException("Failed to create FineTuningEventCollectionPageToken from provided pageToken.", nameof(pageToken));
+            throw new ArgumentException(@"Failed to create FineTuningEventCollectionPageToken from provided pageToken.", nameof(pageToken));
         }
 
         return new(jobId, limit, after);

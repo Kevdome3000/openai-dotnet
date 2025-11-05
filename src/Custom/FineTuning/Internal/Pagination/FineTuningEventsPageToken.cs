@@ -70,7 +70,7 @@ internal class FineTuningEventsPageToken : ContinuationToken
         if (data.ToMemory().Length == 0)
         {
             throw new ArgumentException(
-                $"Failed to create {nameof(FineTuningEventsPageToken)} from provided token.",
+                $@"Failed to create {nameof(FineTuningEventsPageToken)} from provided token.",
                 nameof(token));
         }
 

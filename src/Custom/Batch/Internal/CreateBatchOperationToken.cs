@@ -44,7 +44,7 @@ internal class CreateBatchOperationToken : ContinuationToken
 
         if (data.ToMemory().Length == 0)
         {
-            throw new ArgumentException("Failed to create CreateBatchOperationToken from provided continuationToken.", nameof(continuationToken));
+            throw new ArgumentException(@"Failed to create CreateBatchOperationToken from provided continuationToken.", nameof(continuationToken));
         }
 
         Utf8JsonReader reader = new(data);
@@ -81,7 +81,7 @@ internal class CreateBatchOperationToken : ContinuationToken
 
         if (batchId is null)
         {
-            throw new ArgumentException("Failed to create CreateBatchOperationToken from provided continuationToken.", nameof(continuationToken));
+            throw new ArgumentException(@"Failed to create CreateBatchOperationToken from provided continuationToken.", nameof(continuationToken));
         }
 
         return new(batchId);

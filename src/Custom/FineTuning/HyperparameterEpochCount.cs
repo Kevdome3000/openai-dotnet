@@ -91,7 +91,7 @@ public partial class HyperparameterEpochCount : IEquatable<int>, IEquatable<stri
         {
             JsonValueKind.Number => new(element.GetInt32()),
             JsonValueKind.String => new(element.GetString()),
-            _ => throw new ArgumentException($"Unsupported JsonValueKind", nameof(HyperparameterEpochCount))
+            _ => throw new ArgumentException($@"Unsupported JsonValueKind", nameof(HyperparameterEpochCount))
         };
     }
 
