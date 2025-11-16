@@ -36,6 +36,11 @@ namespace OpenAI.Responses
             }
             base.JsonModelWriteCore(writer, options);
 #pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+            if (Optional.IsDefined(Filters) && !Patch.Contains("$.filters"u8))
+            {
+                writer.WritePropertyName("filters"u8);
+                writer.WriteObjectValue(Filters, options);
+            }
             if (Optional.IsDefined(UserLocation) && !Patch.Contains("$.user_location"u8))
             {
                 writer.WritePropertyName("user_location"u8);
@@ -74,6 +79,7 @@ namespace OpenAI.Responses
 #pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
             JsonPatch patch = new JsonPatch(data is null ? ReadOnlyMemory<byte>.Empty : data.ToMemory());
 #pragma warning restore SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+            WebSearchToolFilters filters = default;
             WebSearchToolLocation userLocation = default;
             WebSearchToolContextSize? searchContextSize = default;
             foreach (var prop in element.EnumerateObject())
@@ -81,6 +87,16 @@ namespace OpenAI.Responses
                 if (prop.NameEquals("type"u8))
                 {
                     kind = new InternalToolType(prop.Value.GetString());
+                    continue;
+                }
+                if (prop.NameEquals("filters"u8))
+                {
+                    if (prop.Value.ValueKind == JsonValueKind.Null)
+                    {
+                        filters = null;
+                        continue;
+                    }
+                    filters = WebSearchToolFilters.DeserializeWebSearchToolFilters(prop.Value, prop.Value.GetUtf8Bytes(), options);
                     continue;
                 }
                 if (prop.NameEquals("user_location"u8))
@@ -104,7 +120,7 @@ namespace OpenAI.Responses
                 }
                 patch.Set([.. "$."u8, .. Encoding.UTF8.GetBytes(prop.Name)], prop.Value.GetUtf8Bytes());
             }
-            return new WebSearchTool(kind, patch, userLocation, searchContextSize);
+            return new WebSearchTool(kind, patch, filters, userLocation, searchContextSize);
         }
 
         BinaryData IPersistableModel<WebSearchTool>.Write(ModelReaderWriterOptions options) => PersistableModelWriteCore(options);
@@ -129,7 +145,7 @@ namespace OpenAI.Responses
             switch (format)
             {
                 case "J":
-                    using (JsonDocument document = JsonDocument.Parse(data))
+                    using (JsonDocument document = JsonDocument.Parse(data, ModelSerializationExtensions.JsonDocumentOptions))
                     {
                         return DeserializeWebSearchTool(document.RootElement, data, options);
                     }
@@ -146,6 +162,10 @@ namespace OpenAI.Responses
             ReadOnlySpan<byte> local = jsonPath.SliceToStartOfPropertyName();
             value = default;
 
+            if (local.StartsWith("filters"u8))
+            {
+                return Filters.Patch.TryGetEncodedValue([.. "$"u8, .. local.Slice("filters"u8.Length)], out value);
+            }
             if (local.StartsWith("user_location"u8))
             {
                 return UserLocation.Patch.TryGetEncodedValue([.. "$"u8, .. local.Slice("user_location"u8.Length)], out value);
@@ -159,6 +179,11 @@ namespace OpenAI.Responses
         {
             ReadOnlySpan<byte> local = jsonPath.SliceToStartOfPropertyName();
 
+            if (local.StartsWith("filters"u8))
+            {
+                Filters.Patch.Set([.. "$"u8, .. local.Slice("filters"u8.Length)], value);
+                return true;
+            }
             if (local.StartsWith("user_location"u8))
             {
                 UserLocation.Patch.Set([.. "$"u8, .. local.Slice("user_location"u8.Length)], value);

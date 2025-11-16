@@ -77,6 +77,8 @@ namespace OpenAI.Responses
                     case "computer_use_preview":
                         return ComputerTool.DeserializeComputerTool(element, data, options);
                     case "web_search_preview":
+                        return WebSearchPreviewTool.DeserializeWebSearchPreviewTool(element, data, options);
+                    case "web_search":
                         return WebSearchTool.DeserializeWebSearchTool(element, data, options);
                     case "code_interpreter":
                         return CodeInterpreterTool.DeserializeCodeInterpreterTool(element, data, options);
@@ -113,7 +115,7 @@ namespace OpenAI.Responses
             switch (format)
             {
                 case "J":
-                    using (JsonDocument document = JsonDocument.Parse(data))
+                    using (JsonDocument document = JsonDocument.Parse(data, ModelSerializationExtensions.JsonDocumentOptions))
                     {
                         return DeserializeResponseTool(document.RootElement, data, options);
                     }
