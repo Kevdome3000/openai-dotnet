@@ -142,4 +142,21 @@ public partial class ResponseTool
             inputImageMask: inputImageMask,
             partialImageCount: partialImageCount);
     }
+
+    // CUSTOM: Added factory method for shell tool support.
+    /// <summary>
+    /// Creates a new instance of a shell tool that allows the model to interact with
+    /// a local computer through a controlled command-line interface.
+    /// The model proposes shell commands; your integration executes them and returns the outputs.
+    /// </summary>
+    /// <returns>A new shell tool instance.</returns>
+    [Experimental("OPENAI001")]
+    public static ResponseTool CreateShellTool()
+    {
+        // Shell tool uses the LocalShell type from InternalToolType
+        // It doesn't require additional parameters - the SDK handles the tool definition
+        return new ResponseTool(
+            kind: InternalToolType.LocalShell,
+            patch: default);
+    }
 }
