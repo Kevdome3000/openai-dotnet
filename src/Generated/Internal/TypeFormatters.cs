@@ -42,7 +42,7 @@ namespace OpenAI
         {
             "U" => ToBase64UrlString(value),
             "D" => Convert.ToBase64String(value),
-            _ => throw new ArgumentException($@"Format is not supported: '{format}'", nameof(format))
+            _ => throw new ArgumentException($"Format is not supported: '{format}'", nameof(format))
         };
 
         public static string ToBase64UrlString(byte[] value)
