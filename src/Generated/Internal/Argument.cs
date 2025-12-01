@@ -35,16 +35,16 @@ namespace OpenAI
             }
             if (value is ICollection<T> collectionOfT && collectionOfT.Count == 0)
             {
-                throw new ArgumentException(@"Value cannot be an empty collection.", name);
+                throw new ArgumentException("Value cannot be an empty collection.", name);
             }
             if (value is ICollection collection && collection.Count == 0)
             {
-                throw new ArgumentException(@"Value cannot be an empty collection.", name);
+                throw new ArgumentException("Value cannot be an empty collection.", name);
             }
             using IEnumerator<T> e = value.GetEnumerator();
             if (!e.MoveNext())
             {
-                throw new ArgumentException(@"Value cannot be an empty collection.", name);
+                throw new ArgumentException("Value cannot be an empty collection.", name);
             }
         }
 
@@ -56,7 +56,7 @@ namespace OpenAI
             }
             if (value.Length == 0)
             {
-                throw new ArgumentException(@"Value cannot be an empty string.", name);
+                throw new ArgumentException("Value cannot be an empty string.", name);
             }
         }
     }
