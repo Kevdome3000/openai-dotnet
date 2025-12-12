@@ -12,13 +12,13 @@ using OpenAI;
 
 namespace OpenAI.Responses
 {
-    internal partial class InternalResponseItemList : IJsonModel<InternalResponseItemList>
+    public partial class ResponseItemCollectionPage : IJsonModel<ResponseItemCollectionPage>
     {
-        internal InternalResponseItemList() : this(null, null, default, null, null, default)
+        public ResponseItemCollectionPage() : this(null, null, default, null, null, default)
         {
         }
 
-        void IJsonModel<InternalResponseItemList>.Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
+        void IJsonModel<ResponseItemCollectionPage>.Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
         {
 #pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
             if (Patch.Contains("$"u8))
@@ -35,10 +35,10 @@ namespace OpenAI.Responses
 
         protected virtual void JsonModelWriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options)
         {
-            string format = options.Format == "W" ? ((IPersistableModel<InternalResponseItemList>)this).GetFormatFromOptions(options) : options.Format;
+            string format = options.Format == "W" ? ((IPersistableModel<ResponseItemCollectionPage>)this).GetFormatFromOptions(options) : options.Format;
             if (format != "J")
             {
-                throw new FormatException($"The model {nameof(InternalResponseItemList)} does not support writing '{format}' format.");
+                throw new FormatException($"The model {nameof(ResponseItemCollectionPage)} does not support writing '{format}' format.");
             }
 #pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
             if (!Patch.Contains("$.object"u8))
@@ -89,20 +89,20 @@ namespace OpenAI.Responses
 #pragma warning restore SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
         }
 
-        InternalResponseItemList IJsonModel<InternalResponseItemList>.Create(ref Utf8JsonReader reader, ModelReaderWriterOptions options) => JsonModelCreateCore(ref reader, options);
+        ResponseItemCollectionPage IJsonModel<ResponseItemCollectionPage>.Create(ref Utf8JsonReader reader, ModelReaderWriterOptions options) => JsonModelCreateCore(ref reader, options);
 
-        protected virtual InternalResponseItemList JsonModelCreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
+        protected virtual ResponseItemCollectionPage JsonModelCreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
         {
-            string format = options.Format == "W" ? ((IPersistableModel<InternalResponseItemList>)this).GetFormatFromOptions(options) : options.Format;
+            string format = options.Format == "W" ? ((IPersistableModel<ResponseItemCollectionPage>)this).GetFormatFromOptions(options) : options.Format;
             if (format != "J")
             {
-                throw new FormatException($"The model {nameof(InternalResponseItemList)} does not support reading '{format}' format.");
+                throw new FormatException($"The model {nameof(ResponseItemCollectionPage)} does not support reading '{format}' format.");
             }
             using JsonDocument document = JsonDocument.ParseValue(ref reader);
-            return DeserializeInternalResponseItemList(document.RootElement, null, options);
+            return DeserializeResponseItemCollectionPage(document.RootElement, null, options);
         }
 
-        internal static InternalResponseItemList DeserializeInternalResponseItemList(JsonElement element, BinaryData data, ModelReaderWriterOptions options)
+        internal static ResponseItemCollectionPage DeserializeResponseItemCollectionPage(JsonElement element, BinaryData data, ModelReaderWriterOptions options)
         {
             if (element.ValueKind == JsonValueKind.Null)
             {
@@ -150,7 +150,7 @@ namespace OpenAI.Responses
                 }
                 patch.Set([.. "$."u8, .. Encoding.UTF8.GetBytes(prop.Name)], prop.Value.GetUtf8Bytes());
             }
-            return new InternalResponseItemList(
+            return new ResponseItemCollectionPage(
                 @object,
                 data0,
                 hasMore,
@@ -159,45 +159,45 @@ namespace OpenAI.Responses
                 patch);
         }
 
-        BinaryData IPersistableModel<InternalResponseItemList>.Write(ModelReaderWriterOptions options) => PersistableModelWriteCore(options);
+        BinaryData IPersistableModel<ResponseItemCollectionPage>.Write(ModelReaderWriterOptions options) => PersistableModelWriteCore(options);
 
         protected virtual BinaryData PersistableModelWriteCore(ModelReaderWriterOptions options)
         {
-            string format = options.Format == "W" ? ((IPersistableModel<InternalResponseItemList>)this).GetFormatFromOptions(options) : options.Format;
+            string format = options.Format == "W" ? ((IPersistableModel<ResponseItemCollectionPage>)this).GetFormatFromOptions(options) : options.Format;
             switch (format)
             {
                 case "J":
                     return ModelReaderWriter.Write(this, options, OpenAIContext.Default);
                 default:
-                    throw new FormatException($"The model {nameof(InternalResponseItemList)} does not support writing '{options.Format}' format.");
+                    throw new FormatException($"The model {nameof(ResponseItemCollectionPage)} does not support writing '{options.Format}' format.");
             }
         }
 
-        InternalResponseItemList IPersistableModel<InternalResponseItemList>.Create(BinaryData data, ModelReaderWriterOptions options) => PersistableModelCreateCore(data, options);
+        ResponseItemCollectionPage IPersistableModel<ResponseItemCollectionPage>.Create(BinaryData data, ModelReaderWriterOptions options) => PersistableModelCreateCore(data, options);
 
-        protected virtual InternalResponseItemList PersistableModelCreateCore(BinaryData data, ModelReaderWriterOptions options)
+        protected virtual ResponseItemCollectionPage PersistableModelCreateCore(BinaryData data, ModelReaderWriterOptions options)
         {
-            string format = options.Format == "W" ? ((IPersistableModel<InternalResponseItemList>)this).GetFormatFromOptions(options) : options.Format;
+            string format = options.Format == "W" ? ((IPersistableModel<ResponseItemCollectionPage>)this).GetFormatFromOptions(options) : options.Format;
             switch (format)
             {
                 case "J":
                     using (JsonDocument document = JsonDocument.Parse(data, ModelSerializationExtensions.JsonDocumentOptions))
                     {
-                        return DeserializeInternalResponseItemList(document.RootElement, data, options);
+                        return DeserializeResponseItemCollectionPage(document.RootElement, data, options);
                     }
                 default:
-                    throw new FormatException($"The model {nameof(InternalResponseItemList)} does not support reading '{options.Format}' format.");
+                    throw new FormatException($"The model {nameof(ResponseItemCollectionPage)} does not support reading '{options.Format}' format.");
             }
         }
 
-        string IPersistableModel<InternalResponseItemList>.GetFormatFromOptions(ModelReaderWriterOptions options) => "J";
+        string IPersistableModel<ResponseItemCollectionPage>.GetFormatFromOptions(ModelReaderWriterOptions options) => "J";
 
-        public static explicit operator InternalResponseItemList(ClientResult result)
+        public static explicit operator ResponseItemCollectionPage(ClientResult result)
         {
             PipelineResponse response = result.GetRawResponse();
             BinaryData data = response.Content;
             using JsonDocument document = JsonDocument.Parse(data, ModelSerializationExtensions.JsonDocumentOptions);
-            return DeserializeInternalResponseItemList(document.RootElement, data, ModelSerializationExtensions.WireOptions);
+            return DeserializeResponseItemCollectionPage(document.RootElement, data, ModelSerializationExtensions.WireOptions);
         }
 
 #pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.

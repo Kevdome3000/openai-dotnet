@@ -12,13 +12,17 @@ using OpenAI;
 namespace OpenAI.Responses
 {
     [Experimental("OPENAI001")]
-    public partial class ResponseCreationOptions
+    public partial class CreateResponseOptions
     {
         [Experimental("SCME0001")]
         private JsonPatch _patch;
 
+        public CreateResponseOptions() : this(null, default, default, default, null, null, default, null, null, null, default, default, default, null, null, null, null, default, null, null, default, default, default, null, default)
+        {
+        }
+
 #pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
-        internal ResponseCreationOptions(IDictionary<string, string> metadata, float? temperature, int? topLogProbabilityCount, float? topP, string endUserId, string safetyIdentifier, ResponseServiceTier? serviceTier, string previousResponseId, string model, ResponseReasoningOptions reasoningOptions, bool? backgroundModeEnabled, int? maxOutputTokenCount, int? maxToolCallCount, string instructions, ResponseTextOptions textOptions, IList<ResponseTool> tools, ResponseToolChoice toolChoice, ResponseTruncationMode? truncationMode, IList<ResponseItem> input, IList<IncludedResponseProperty> includedProperties, bool? parallelToolCallsEnabled, bool? storedOutputEnabled, bool? stream, string conversationId, in JsonPatch patch)
+        internal CreateResponseOptions(IDictionary<string, string> metadata, float? temperature, int? topLogProbabilityCount, float? topP, string endUserId, string safetyIdentifier, ResponseServiceTier? serviceTier, string previousResponseId, string model, ResponseReasoningOptions reasoningOptions, bool? backgroundModeEnabled, int? maxOutputTokenCount, int? maxToolCallCount, string instructions, ResponseTextOptions textOptions, IList<ResponseTool> tools, ResponseToolChoice toolChoice, ResponseTruncationMode? truncationMode, IList<ResponseItem> inputItems, IList<IncludedResponseProperty> includedProperties, bool? parallelToolCallsEnabled, bool? storedOutputEnabled, bool? streamingEnabled, ResponseConversationOptions conversationOptions, in JsonPatch patch)
         {
             // Plugin customization: ensure initialization of collections
             Metadata = metadata ?? new ChangeTrackingDictionary<string, string>();
@@ -39,12 +43,12 @@ namespace OpenAI.Responses
             Tools = tools ?? new ChangeTrackingList<ResponseTool>();
             ToolChoice = toolChoice;
             TruncationMode = truncationMode;
-            Input = input ?? new ChangeTrackingList<ResponseItem>();
+            InputItems = inputItems ?? new ChangeTrackingList<ResponseItem>();
             IncludedProperties = includedProperties ?? new ChangeTrackingList<IncludedResponseProperty>();
             ParallelToolCallsEnabled = parallelToolCallsEnabled;
             StoredOutputEnabled = storedOutputEnabled;
-            Stream = stream;
-            ConversationId = conversationId;
+            StreamingEnabled = streamingEnabled;
+            ConversationOptions = conversationOptions;
             _patch = patch;
             _patch.SetPropagators(PropagateSet, PropagateGet);
         }
@@ -67,8 +71,10 @@ namespace OpenAI.Responses
 
         public string PreviousResponseId { get; set; }
 
+        public string Model { get; set; }
+
         public string Instructions { get; set; }
 
-        public string ConversationId { get; set; }
+        public IList<ResponseTool> Tools { get; }
     }
 }

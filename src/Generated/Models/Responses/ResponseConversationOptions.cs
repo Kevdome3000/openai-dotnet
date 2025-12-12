@@ -6,23 +6,27 @@ using System.ClientModel.Primitives;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
+using OpenAI;
 
 namespace OpenAI.Responses
 {
-    internal partial class InternalConversation
+    [Experimental("OPENAI001")]
+    public partial class ResponseConversationOptions
     {
         [Experimental("SCME0001")]
         private JsonPatch _patch;
 
-        internal InternalConversation(string id)
+        public ResponseConversationOptions(string conversationId)
         {
-            Id = id;
+            Argument.AssertNotNull(conversationId, nameof(conversationId));
+
+            ConversationId = conversationId;
         }
 
 #pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
-        internal InternalConversation(string id, in JsonPatch patch)
+        internal ResponseConversationOptions(string conversationId, in JsonPatch patch)
         {
-            Id = id;
+            ConversationId = conversationId;
             _patch = patch;
         }
 #pragma warning restore SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
@@ -31,7 +35,5 @@ namespace OpenAI.Responses
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Experimental("SCME0001")]
         public ref JsonPatch Patch => ref _patch;
-
-        public string Id { get; }
     }
 }

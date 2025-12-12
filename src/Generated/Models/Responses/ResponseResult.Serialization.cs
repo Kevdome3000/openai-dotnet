@@ -3,6 +3,7 @@
 #nullable disable
 
 using System;
+using System.ClientModel;
 using System.ClientModel.Primitives;
 using System.Collections.Generic;
 using System.Text;
@@ -11,13 +12,13 @@ using OpenAI;
 
 namespace OpenAI.Responses
 {
-    public partial class ResponseCreationOptions : IJsonModel<ResponseCreationOptions>
+    public partial class ResponseResult : IJsonModel<ResponseResult>
     {
-        public ResponseCreationOptions() : this(null, default, default, default, null, null, default, null, null, null, default, default, default, null, null, null, null, default, null, null, default, default, default, null, default)
+        public ResponseResult() : this(null, default, default, default, null, null, default, null, null, null, default, default, default, null, null, null, null, default, null, null, default, default, null, null, null, null, default, null, default)
         {
         }
 
-        void IJsonModel<ResponseCreationOptions>.Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
+        void IJsonModel<ResponseResult>.Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
         {
 #pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
             if (Patch.Contains("$"u8))
@@ -34,10 +35,10 @@ namespace OpenAI.Responses
 
         protected virtual void JsonModelWriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options)
         {
-            string format = options.Format == "W" ? ((IPersistableModel<ResponseCreationOptions>)this).GetFormatFromOptions(options) : options.Format;
+            string format = options.Format == "W" ? ((IPersistableModel<ResponseResult>)this).GetFormatFromOptions(options) : options.Format;
             if (format != "J")
             {
-                throw new FormatException($"The model {nameof(ResponseCreationOptions)} does not support writing '{format}' format.");
+                throw new FormatException($"The model {nameof(ResponseResult)} does not support writing '{format}' format.");
             }
 #pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
             if (Optional.IsCollectionDefined(Metadata) && !Patch.Contains("$.metadata"u8))
@@ -70,10 +71,18 @@ namespace OpenAI.Responses
                 Patch.WriteTo(writer, "$.metadata"u8);
                 writer.WriteEndObject();
             }
+            else
+            {
+                writer.WriteNull("metadata"u8);
+            }
             if (Optional.IsDefined(Temperature) && !Patch.Contains("$.temperature"u8))
             {
                 writer.WritePropertyName("temperature"u8);
                 writer.WriteNumberValue(Temperature.Value);
+            }
+            else
+            {
+                writer.WriteNull("temperature"u8);
             }
             if (Optional.IsDefined(TopLogProbabilityCount) && !Patch.Contains("$.top_logprobs"u8))
             {
@@ -85,10 +94,18 @@ namespace OpenAI.Responses
                 writer.WritePropertyName("top_p"u8);
                 writer.WriteNumberValue(TopP.Value);
             }
+            else
+            {
+                writer.WriteNull("top_p"u8);
+            }
             if (Optional.IsDefined(EndUserId) && !Patch.Contains("$.user"u8))
             {
                 writer.WritePropertyName("user"u8);
                 writer.WriteStringValue(EndUserId);
+            }
+            else
+            {
+                writer.WriteNull("user"u8);
             }
             if (Optional.IsDefined(SafetyIdentifier) && !Patch.Contains("$.safety_identifier"u8))
             {
@@ -173,91 +190,101 @@ namespace OpenAI.Responses
                 writer.WritePropertyName("truncation"u8);
                 writer.WriteStringValue(TruncationMode.Value.ToString());
             }
-            if (Patch.Contains("$.input"u8))
+            if (!Patch.Contains("$.id"u8))
             {
-                if (!Patch.IsRemoved("$.input"u8))
+                writer.WritePropertyName("id"u8);
+                writer.WriteStringValue(Id);
+            }
+            if (!Patch.Contains("$.object"u8))
+            {
+                writer.WritePropertyName("object"u8);
+                writer.WriteStringValue(Object);
+            }
+            if (Optional.IsDefined(Status) && !Patch.Contains("$.status"u8))
+            {
+                writer.WritePropertyName("status"u8);
+                writer.WriteStringValue(Status.Value.ToSerialString());
+            }
+            if (!Patch.Contains("$.created_at"u8))
+            {
+                writer.WritePropertyName("created_at"u8);
+                writer.WriteNumberValue(CreatedAt, "U");
+            }
+            if (Optional.IsDefined(Error) && !Patch.Contains("$.error"u8))
+            {
+                writer.WritePropertyName("error"u8);
+                writer.WriteObjectValue(Error, options);
+            }
+            else
+            {
+                writer.WriteNull("error"u8);
+            }
+            if (Optional.IsDefined(IncompleteStatusDetails) && !Patch.Contains("$.incomplete_details"u8))
+            {
+                writer.WritePropertyName("incomplete_details"u8);
+                writer.WriteObjectValue(IncompleteStatusDetails, options);
+            }
+            else
+            {
+                writer.WriteNull("incomplete_details"u8);
+            }
+            if (Patch.Contains("$.output"u8))
+            {
+                if (!Patch.IsRemoved("$.output"u8))
                 {
-                    writer.WritePropertyName("input"u8);
-                    writer.WriteRawValue(Patch.GetJson("$.input"u8));
+                    writer.WritePropertyName("output"u8);
+                    writer.WriteRawValue(Patch.GetJson("$.output"u8));
                 }
             }
             else
             {
-                writer.WritePropertyName("input"u8);
+                writer.WritePropertyName("output"u8);
                 writer.WriteStartArray();
-                for (int i = 0; i < Input.Count; i++)
+                for (int i = 0; i < OutputItems.Count; i++)
                 {
-                    if (Input[i].Patch.IsRemoved("$"u8))
+                    if (OutputItems[i].Patch.IsRemoved("$"u8))
                     {
                         continue;
                     }
-                    writer.WriteObjectValue(Input[i], options);
+                    writer.WriteObjectValue(OutputItems[i], options);
                 }
-                Patch.WriteTo(writer, "$.input"u8);
+                Patch.WriteTo(writer, "$.output"u8);
                 writer.WriteEndArray();
             }
-            if (Patch.Contains("$.include"u8))
+            if (Optional.IsDefined(Usage) && !Patch.Contains("$.usage"u8))
             {
-                if (!Patch.IsRemoved("$.include"u8))
-                {
-                    writer.WritePropertyName("include"u8);
-                    writer.WriteRawValue(Patch.GetJson("$.include"u8));
-                }
+                writer.WritePropertyName("usage"u8);
+                writer.WriteObjectValue(Usage, options);
             }
-            else if (Optional.IsCollectionDefined(IncludedProperties))
-            {
-                writer.WritePropertyName("include"u8);
-                writer.WriteStartArray();
-                for (int i = 0; i < IncludedProperties.Count; i++)
-                {
-                    if (Patch.IsRemoved(Encoding.UTF8.GetBytes($"$.include[{i}]")))
-                    {
-                        continue;
-                    }
-                    writer.WriteStringValue(IncludedProperties[i].ToString());
-                }
-                Patch.WriteTo(writer, "$.include"u8);
-                writer.WriteEndArray();
-            }
-            if (Optional.IsDefined(ParallelToolCallsEnabled) && !Patch.Contains("$.parallel_tool_calls"u8))
+            if (!Patch.Contains("$.parallel_tool_calls"u8))
             {
                 writer.WritePropertyName("parallel_tool_calls"u8);
-                writer.WriteBooleanValue(ParallelToolCallsEnabled.Value);
+                writer.WriteBooleanValue(ParallelToolCallsEnabled);
             }
-            if (Optional.IsDefined(StoredOutputEnabled) && !Patch.Contains("$.store"u8))
-            {
-                writer.WritePropertyName("store"u8);
-                writer.WriteBooleanValue(StoredOutputEnabled.Value);
-            }
-            if (Optional.IsDefined(Stream) && !Patch.Contains("$.stream"u8))
-            {
-                writer.WritePropertyName("stream"u8);
-                writer.WriteBooleanValue(Stream.Value);
-            }
-            if (Optional.IsDefined(ConversationId) && !Patch.Contains("$.conversation"u8))
+            if (Optional.IsDefined(ConversationOptions) && !Patch.Contains("$.conversation"u8))
             {
                 writer.WritePropertyName("conversation"u8);
-                writer.WriteStringValue(ConversationId);
+                writer.WriteObjectValue(ConversationOptions, options);
             }
 
             Patch.WriteTo(writer);
 #pragma warning restore SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
         }
 
-        ResponseCreationOptions IJsonModel<ResponseCreationOptions>.Create(ref Utf8JsonReader reader, ModelReaderWriterOptions options) => JsonModelCreateCore(ref reader, options);
+        ResponseResult IJsonModel<ResponseResult>.Create(ref Utf8JsonReader reader, ModelReaderWriterOptions options) => JsonModelCreateCore(ref reader, options);
 
-        protected virtual ResponseCreationOptions JsonModelCreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
+        protected virtual ResponseResult JsonModelCreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
         {
-            string format = options.Format == "W" ? ((IPersistableModel<ResponseCreationOptions>)this).GetFormatFromOptions(options) : options.Format;
+            string format = options.Format == "W" ? ((IPersistableModel<ResponseResult>)this).GetFormatFromOptions(options) : options.Format;
             if (format != "J")
             {
-                throw new FormatException($"The model {nameof(ResponseCreationOptions)} does not support reading '{format}' format.");
+                throw new FormatException($"The model {nameof(ResponseResult)} does not support reading '{format}' format.");
             }
             using JsonDocument document = JsonDocument.ParseValue(ref reader);
-            return DeserializeResponseCreationOptions(document.RootElement, null, options);
+            return DeserializeResponseResult(document.RootElement, null, options);
         }
 
-        internal static ResponseCreationOptions DeserializeResponseCreationOptions(JsonElement element, BinaryData data, ModelReaderWriterOptions options)
+        internal static ResponseResult DeserializeResponseResult(JsonElement element, BinaryData data, ModelReaderWriterOptions options)
         {
             if (element.ValueKind == JsonValueKind.Null)
             {
@@ -281,12 +308,16 @@ namespace OpenAI.Responses
             IList<ResponseTool> tools = default;
             ResponseToolChoice toolChoice = default;
             ResponseTruncationMode? truncationMode = default;
-            IList<ResponseItem> input = default;
-            IList<IncludedResponseProperty> includedProperties = default;
-            bool? parallelToolCallsEnabled = default;
-            bool? storedOutputEnabled = default;
-            bool? stream = default;
-            string conversationId = default;
+            string id = default;
+            string @object = default;
+            ResponseStatus? status = default;
+            DateTimeOffset createdAt = default;
+            ResponseError error = default;
+            ResponseIncompleteStatusDetails incompleteStatusDetails = default;
+            IList<ResponseItem> outputItems = default;
+            ResponseTokenUsage usage = default;
+            bool parallelToolCallsEnabled = default;
+            ResponseConversationOptions conversationOptions = default;
 #pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
             JsonPatch patch = new JsonPatch(data is null ? ReadOnlyMemory<byte>.Empty : data.ToMemory());
 #pragma warning restore SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
@@ -296,6 +327,7 @@ namespace OpenAI.Responses
                 {
                     if (prop.Value.ValueKind == JsonValueKind.Null)
                     {
+                        metadata = new ChangeTrackingDictionary<string, string>();
                         continue;
                     }
                     Dictionary<string, string> dictionary = new Dictionary<string, string>();
@@ -345,6 +377,11 @@ namespace OpenAI.Responses
                 }
                 if (prop.NameEquals("user"u8))
                 {
+                    if (prop.Value.ValueKind == JsonValueKind.Null)
+                    {
+                        endUserId = null;
+                        continue;
+                    }
                     endUserId = prop.Value.GetString();
                     continue;
                 }
@@ -469,69 +506,88 @@ namespace OpenAI.Responses
                     truncationMode = new ResponseTruncationMode(prop.Value.GetString());
                     continue;
                 }
-                if (prop.NameEquals("input"u8))
+                if (prop.NameEquals("id"u8))
+                {
+                    id = prop.Value.GetString();
+                    continue;
+                }
+                if (prop.NameEquals("object"u8))
+                {
+                    @object = prop.Value.GetString();
+                    continue;
+                }
+                if (prop.NameEquals("status"u8))
+                {
+                    if (prop.Value.ValueKind == JsonValueKind.Null)
+                    {
+                        continue;
+                    }
+                    status = prop.Value.GetString().ToResponseStatus();
+                    continue;
+                }
+                if (prop.NameEquals("created_at"u8))
+                {
+                    createdAt = DateTimeOffset.FromUnixTimeSeconds(prop.Value.GetInt64());
+                    continue;
+                }
+                if (prop.NameEquals("error"u8))
+                {
+                    if (prop.Value.ValueKind == JsonValueKind.Null)
+                    {
+                        error = null;
+                        continue;
+                    }
+                    error = ResponseError.DeserializeResponseError(prop.Value, prop.Value.GetUtf8Bytes(), options);
+                    continue;
+                }
+                if (prop.NameEquals("incomplete_details"u8))
+                {
+                    if (prop.Value.ValueKind == JsonValueKind.Null)
+                    {
+                        incompleteStatusDetails = null;
+                        continue;
+                    }
+                    incompleteStatusDetails = ResponseIncompleteStatusDetails.DeserializeResponseIncompleteStatusDetails(prop.Value, prop.Value.GetUtf8Bytes(), options);
+                    continue;
+                }
+                if (prop.NameEquals("output"u8))
                 {
                     List<ResponseItem> array = new List<ResponseItem>();
                     foreach (var item in prop.Value.EnumerateArray())
                     {
                         array.Add(ResponseItem.DeserializeResponseItem(item, item.GetUtf8Bytes(), options));
                     }
-                    input = array;
+                    outputItems = array;
                     continue;
                 }
-                if (prop.NameEquals("include"u8))
+                if (prop.NameEquals("usage"u8))
                 {
                     if (prop.Value.ValueKind == JsonValueKind.Null)
                     {
                         continue;
                     }
-                    List<IncludedResponseProperty> array = new List<IncludedResponseProperty>();
-                    foreach (var item in prop.Value.EnumerateArray())
-                    {
-                        array.Add(new IncludedResponseProperty(item.GetString()));
-                    }
-                    includedProperties = array;
+                    usage = ResponseTokenUsage.DeserializeResponseTokenUsage(prop.Value, prop.Value.GetUtf8Bytes(), options);
                     continue;
                 }
                 if (prop.NameEquals("parallel_tool_calls"u8))
                 {
-                    if (prop.Value.ValueKind == JsonValueKind.Null)
-                    {
-                        parallelToolCallsEnabled = null;
-                        continue;
-                    }
                     parallelToolCallsEnabled = prop.Value.GetBoolean();
-                    continue;
-                }
-                if (prop.NameEquals("store"u8))
-                {
-                    if (prop.Value.ValueKind == JsonValueKind.Null)
-                    {
-                        storedOutputEnabled = null;
-                        continue;
-                    }
-                    storedOutputEnabled = prop.Value.GetBoolean();
-                    continue;
-                }
-                if (prop.NameEquals("stream"u8))
-                {
-                    if (prop.Value.ValueKind == JsonValueKind.Null)
-                    {
-                        stream = null;
-                        continue;
-                    }
-                    stream = prop.Value.GetBoolean();
                     continue;
                 }
                 if (prop.NameEquals("conversation"u8))
                 {
-                    conversationId = prop.Value.GetString();
+                    if (prop.Value.ValueKind == JsonValueKind.Null)
+                    {
+                        conversationOptions = null;
+                        continue;
+                    }
+                    conversationOptions = ResponseConversationOptions.DeserializeResponseConversationOptions(prop.Value, prop.Value.GetUtf8Bytes(), options);
                     continue;
                 }
                 patch.Set([.. "$."u8, .. Encoding.UTF8.GetBytes(prop.Name)], prop.Value.GetUtf8Bytes());
             }
-            return new ResponseCreationOptions(
-                metadata ?? new ChangeTrackingDictionary<string, string>(),
+            return new ResponseResult(
+                metadata,
                 temperature,
                 topLogProbabilityCount,
                 topP,
@@ -549,47 +605,59 @@ namespace OpenAI.Responses
                 tools ?? new ChangeTrackingList<ResponseTool>(),
                 toolChoice,
                 truncationMode,
-                input,
-                includedProperties ?? new ChangeTrackingList<IncludedResponseProperty>(),
+                id,
+                @object,
+                status,
+                createdAt,
+                error,
+                incompleteStatusDetails,
+                outputItems,
+                usage,
                 parallelToolCallsEnabled,
-                storedOutputEnabled,
-                stream,
-                conversationId,
+                conversationOptions,
                 patch);
         }
 
-        BinaryData IPersistableModel<ResponseCreationOptions>.Write(ModelReaderWriterOptions options) => PersistableModelWriteCore(options);
+        BinaryData IPersistableModel<ResponseResult>.Write(ModelReaderWriterOptions options) => PersistableModelWriteCore(options);
 
         protected virtual BinaryData PersistableModelWriteCore(ModelReaderWriterOptions options)
         {
-            string format = options.Format == "W" ? ((IPersistableModel<ResponseCreationOptions>)this).GetFormatFromOptions(options) : options.Format;
+            string format = options.Format == "W" ? ((IPersistableModel<ResponseResult>)this).GetFormatFromOptions(options) : options.Format;
             switch (format)
             {
                 case "J":
                     return ModelReaderWriter.Write(this, options, OpenAIContext.Default);
                 default:
-                    throw new FormatException($"The model {nameof(ResponseCreationOptions)} does not support writing '{options.Format}' format.");
+                    throw new FormatException($"The model {nameof(ResponseResult)} does not support writing '{options.Format}' format.");
             }
         }
 
-        ResponseCreationOptions IPersistableModel<ResponseCreationOptions>.Create(BinaryData data, ModelReaderWriterOptions options) => PersistableModelCreateCore(data, options);
+        ResponseResult IPersistableModel<ResponseResult>.Create(BinaryData data, ModelReaderWriterOptions options) => PersistableModelCreateCore(data, options);
 
-        protected virtual ResponseCreationOptions PersistableModelCreateCore(BinaryData data, ModelReaderWriterOptions options)
+        protected virtual ResponseResult PersistableModelCreateCore(BinaryData data, ModelReaderWriterOptions options)
         {
-            string format = options.Format == "W" ? ((IPersistableModel<ResponseCreationOptions>)this).GetFormatFromOptions(options) : options.Format;
+            string format = options.Format == "W" ? ((IPersistableModel<ResponseResult>)this).GetFormatFromOptions(options) : options.Format;
             switch (format)
             {
                 case "J":
                     using (JsonDocument document = JsonDocument.Parse(data, ModelSerializationExtensions.JsonDocumentOptions))
                     {
-                        return DeserializeResponseCreationOptions(document.RootElement, data, options);
+                        return DeserializeResponseResult(document.RootElement, data, options);
                     }
                 default:
-                    throw new FormatException($"The model {nameof(ResponseCreationOptions)} does not support reading '{options.Format}' format.");
+                    throw new FormatException($"The model {nameof(ResponseResult)} does not support reading '{options.Format}' format.");
             }
         }
 
-        string IPersistableModel<ResponseCreationOptions>.GetFormatFromOptions(ModelReaderWriterOptions options) => "J";
+        string IPersistableModel<ResponseResult>.GetFormatFromOptions(ModelReaderWriterOptions options) => "J";
+
+        public static explicit operator ResponseResult(ClientResult result)
+        {
+            PipelineResponse response = result.GetRawResponse();
+            BinaryData data = response.Content;
+            using JsonDocument document = JsonDocument.Parse(data, ModelSerializationExtensions.JsonDocumentOptions);
+            return DeserializeResponseResult(document.RootElement, data, ModelSerializationExtensions.WireOptions);
+        }
 
 #pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
         private bool PropagateGet(ReadOnlySpan<byte> jsonPath, out JsonPatch.EncodedValue value)
@@ -605,6 +673,22 @@ namespace OpenAI.Responses
             {
                 return TextOptions.Patch.TryGetEncodedValue([.. "$"u8, .. local.Slice("text"u8.Length)], out value);
             }
+            if (local.StartsWith("error"u8))
+            {
+                return Error.Patch.TryGetEncodedValue([.. "$"u8, .. local.Slice("error"u8.Length)], out value);
+            }
+            if (local.StartsWith("incomplete_details"u8))
+            {
+                return IncompleteStatusDetails.Patch.TryGetEncodedValue([.. "$"u8, .. local.Slice("incomplete_details"u8.Length)], out value);
+            }
+            if (local.StartsWith("usage"u8))
+            {
+                return Usage.Patch.TryGetEncodedValue([.. "$"u8, .. local.Slice("usage"u8.Length)], out value);
+            }
+            if (local.StartsWith("conversation"u8))
+            {
+                return ConversationOptions.Patch.TryGetEncodedValue([.. "$"u8, .. local.Slice("conversation"u8.Length)], out value);
+            }
             if (local.StartsWith("tools"u8))
             {
                 int propertyLength = "tools"u8.Length;
@@ -615,15 +699,15 @@ namespace OpenAI.Responses
                 }
                 return Tools[index].Patch.TryGetEncodedValue([.. "$"u8, .. currentSlice.Slice(bytesConsumed)], out value);
             }
-            if (local.StartsWith("input"u8))
+            if (local.StartsWith("output"u8))
             {
-                int propertyLength = "input"u8.Length;
+                int propertyLength = "output"u8.Length;
                 ReadOnlySpan<byte> currentSlice = local.Slice(propertyLength);
                 if (!currentSlice.TryGetIndex(out int index, out int bytesConsumed))
                 {
                     return false;
                 }
-                return Input[index].Patch.TryGetEncodedValue([.. "$"u8, .. currentSlice.Slice(bytesConsumed)], out value);
+                return OutputItems[index].Patch.TryGetEncodedValue([.. "$"u8, .. currentSlice.Slice(bytesConsumed)], out value);
             }
             return false;
         }
@@ -644,6 +728,26 @@ namespace OpenAI.Responses
                 TextOptions.Patch.Set([.. "$"u8, .. local.Slice("text"u8.Length)], value);
                 return true;
             }
+            if (local.StartsWith("error"u8))
+            {
+                Error.Patch.Set([.. "$"u8, .. local.Slice("error"u8.Length)], value);
+                return true;
+            }
+            if (local.StartsWith("incomplete_details"u8))
+            {
+                IncompleteStatusDetails.Patch.Set([.. "$"u8, .. local.Slice("incomplete_details"u8.Length)], value);
+                return true;
+            }
+            if (local.StartsWith("usage"u8))
+            {
+                Usage.Patch.Set([.. "$"u8, .. local.Slice("usage"u8.Length)], value);
+                return true;
+            }
+            if (local.StartsWith("conversation"u8))
+            {
+                ConversationOptions.Patch.Set([.. "$"u8, .. local.Slice("conversation"u8.Length)], value);
+                return true;
+            }
             if (local.StartsWith("tools"u8))
             {
                 int propertyLength = "tools"u8.Length;
@@ -655,15 +759,15 @@ namespace OpenAI.Responses
                 Tools[index].Patch.Set([.. "$"u8, .. currentSlice.Slice(bytesConsumed)], value);
                 return true;
             }
-            if (local.StartsWith("input"u8))
+            if (local.StartsWith("output"u8))
             {
-                int propertyLength = "input"u8.Length;
+                int propertyLength = "output"u8.Length;
                 ReadOnlySpan<byte> currentSlice = local.Slice(propertyLength);
                 if (!currentSlice.TryGetIndex(out int index, out int bytesConsumed))
                 {
                     return false;
                 }
-                Input[index].Patch.Set([.. "$"u8, .. currentSlice.Slice(bytesConsumed)], value);
+                OutputItems[index].Patch.Set([.. "$"u8, .. currentSlice.Slice(bytesConsumed)], value);
                 return true;
             }
             return false;

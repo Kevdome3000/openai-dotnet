@@ -1,50 +1,47 @@
-using System.ClientModel;
-using System.ClientModel.Primitives;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
+using System.ComponentModel;
 using System.Linq;
-using System.Text.Json;
 
 namespace OpenAI.Responses;
 
 // CUSTOM:
-// - Added Experimental attribute.
 // - Renamed.
+// - Suppressed client-only OutputText property in favor of a method.
 [CodeGenType("Response")]
 [CodeGenSuppress("OutputText")]
-public partial class OpenAIResponse
+public partial class ResponseResult
 {
     // CUSTOM: Renamed.
     [CodeGenMember("Background")]
-    public bool? BackgroundModeEnabled { get; }
+    public bool? BackgroundModeEnabled { get; set; }
 
     // CUSTOM: Renamed.
     [CodeGenMember("User")]
-    public string EndUserId { get; }
+    public string EndUserId { get; set; }
 
     // CUSTOM: Renamed.
     [CodeGenMember("Reasoning")]
-    public ResponseReasoningOptions ReasoningOptions { get; }
+    public ResponseReasoningOptions ReasoningOptions { get; set; }
 
     // CUSTOM: Renamed.
     [CodeGenMember("MaxOutputTokens")]
-    public int? MaxOutputTokenCount { get; }
+    public int? MaxOutputTokenCount { get; set; }
 
     // CUSTOM: Renamed.
     [CodeGenMember("MaxToolCalls")]
-    public int? MaxToolCallCount { get; }
+    public int? MaxToolCallCount { get; set; }
 
     // CUSTOM: Renamed.
     [CodeGenMember("Text")]
-    public ResponseTextOptions TextOptions { get; }
+    public ResponseTextOptions TextOptions { get; set; }
 
     // CUSTOM: Renamed.
     [CodeGenMember("Truncation")]
-    public ResponseTruncationMode? TruncationMode { get; }
+    public ResponseTruncationMode? TruncationMode { get; set; }
 
     // CUSTOM: Renamed.
     [CodeGenMember("IncompleteDetails")]
-    public ResponseIncompleteStatusDetails IncompleteStatusDetails { get; }
+    public ResponseIncompleteStatusDetails IncompleteStatusDetails { get; set; }
 
     // CUSTOM: Renamed.
     [CodeGenMember("Output")]
@@ -52,24 +49,24 @@ public partial class OpenAIResponse
 
     // CUSTOM: Renamed.
     [CodeGenMember("ParallelToolCalls")]
-    public bool ParallelToolCallsEnabled { get; }
+    public bool ParallelToolCallsEnabled { get; set; }
 
-    // CUSTOM: Using convenience type.
+    // CUSTOM: Changed type.
     [CodeGenMember("ToolChoice")]
-    public ResponseToolChoice ToolChoice { get; }
-
-    // CUSTOM: Use a plain string.
-    [CodeGenMember("Model")]
-    public string Model { get; }
-
-    public string ConversationId => Conversation.Id;
+    public ResponseToolChoice ToolChoice { get; set; }
 
     // CUSTOM: Renamed.
     [CodeGenMember("TopLogprobs")]
-    public int? TopLogProbabilityCount { get; }
+    public int? TopLogProbabilityCount { get; set; }
 
-    // CUSTOM: Made internal
-    internal string Object { get; } = "response";
+    // CUSTOM: Renamed.
+    [CodeGenMember("Conversation")]
+    public ResponseConversationOptions ConversationOptions { get; set; }
+
+    // CUSTOM: Applied EditorBrowsableState.Never.
+    [CodeGenMember("Object")]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public string Object { get; set; } = "response";
 
     public string GetOutputText()
     {

@@ -14,15 +14,15 @@ using OpenAI;
 namespace OpenAI.Responses
 {
     [Experimental("OPENAI001")]
-    public partial class OpenAIResponseClient
+    public partial class ResponsesClient
     {
         private readonly Uri _endpoint;
 
-        protected OpenAIResponseClient()
+        protected ResponsesClient()
         {
         }
 
-        internal OpenAIResponseClient(ClientPipeline pipeline, Uri endpoint)
+        internal ResponsesClient(ClientPipeline pipeline, Uri endpoint)
         {
             _endpoint = endpoint;
             Pipeline = pipeline;
@@ -78,6 +78,22 @@ namespace OpenAI.Responses
             return ClientResult.FromResponse(await Pipeline.ProcessMessageAsync(message, options).ConfigureAwait(false));
         }
 
+        public virtual ClientResult<ResponseDeletionResult> DeleteResponse(string responseId, CancellationToken cancellationToken = default)
+        {
+            Argument.AssertNotNullOrEmpty(responseId, nameof(responseId));
+
+            ClientResult result = DeleteResponse(responseId, cancellationToken.ToRequestOptions());
+            return ClientResult.FromValue((ResponseDeletionResult)result, result.GetRawResponse());
+        }
+
+        public virtual async Task<ClientResult<ResponseDeletionResult>> DeleteResponseAsync(string responseId, CancellationToken cancellationToken = default)
+        {
+            Argument.AssertNotNullOrEmpty(responseId, nameof(responseId));
+
+            ClientResult result = await DeleteResponseAsync(responseId, cancellationToken.ToRequestOptions()).ConfigureAwait(false);
+            return ClientResult.FromValue((ResponseDeletionResult)result, result.GetRawResponse());
+        }
+
         public virtual ClientResult CancelResponse(string responseId, RequestOptions options)
         {
             Argument.AssertNotNullOrEmpty(responseId, nameof(responseId));
@@ -94,60 +110,20 @@ namespace OpenAI.Responses
             return ClientResult.FromResponse(await Pipeline.ProcessMessageAsync(message, options).ConfigureAwait(false));
         }
 
-        public virtual CollectionResult GetResponseInputItems(string responseId, int? limit, string order, string after, string before, RequestOptions options)
+        public virtual ClientResult<ResponseResult> CancelResponse(string responseId, CancellationToken cancellationToken = default)
         {
             Argument.AssertNotNullOrEmpty(responseId, nameof(responseId));
 
-            return new OpenAIResponseClientGetResponseInputItemsCollectionResult(
-                this,
-                responseId,
-                limit,
-                order,
-                after,
-                before,
-                options);
+            ClientResult result = CancelResponse(responseId, cancellationToken.ToRequestOptions());
+            return ClientResult.FromValue((ResponseResult)result, result.GetRawResponse());
         }
 
-        public virtual AsyncCollectionResult GetResponseInputItemsAsync(string responseId, int? limit, string order, string after, string before, RequestOptions options)
+        public virtual async Task<ClientResult<ResponseResult>> CancelResponseAsync(string responseId, CancellationToken cancellationToken = default)
         {
             Argument.AssertNotNullOrEmpty(responseId, nameof(responseId));
 
-            return new OpenAIResponseClientGetResponseInputItemsAsyncCollectionResult(
-                this,
-                responseId,
-                limit,
-                order,
-                after,
-                before,
-                options);
-        }
-
-        public virtual CollectionResult<ResponseItem> GetResponseInputItems(string responseId, ResponseItemCollectionOptions options = default, CancellationToken cancellationToken = default)
-        {
-            Argument.AssertNotNullOrEmpty(responseId, nameof(responseId));
-
-            return new OpenAIResponseClientGetResponseInputItemsCollectionResultOfT(
-                this,
-                responseId,
-                options?.PageSizeLimit,
-                options?.Order?.ToString(),
-                options?.AfterId,
-                options?.BeforeId,
-                cancellationToken.ToRequestOptions());
-        }
-
-        public virtual AsyncCollectionResult<ResponseItem> GetResponseInputItemsAsync(string responseId, ResponseItemCollectionOptions options = default, CancellationToken cancellationToken = default)
-        {
-            Argument.AssertNotNullOrEmpty(responseId, nameof(responseId));
-
-            return new OpenAIResponseClientGetResponseInputItemsAsyncCollectionResultOfT(
-                this,
-                responseId,
-                options?.PageSizeLimit,
-                options?.Order?.ToString(),
-                options?.AfterId,
-                options?.BeforeId,
-                cancellationToken.ToRequestOptions());
+            ClientResult result = await CancelResponseAsync(responseId, cancellationToken.ToRequestOptions()).ConfigureAwait(false);
+            return ClientResult.FromValue((ResponseResult)result, result.GetRawResponse());
         }
     }
 }

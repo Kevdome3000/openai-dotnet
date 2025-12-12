@@ -9,9 +9,9 @@ using System.Collections.Generic;
 
 namespace OpenAI.Responses
 {
-    internal partial class OpenAIResponseClientGetResponseInputItemsAsyncCollectionResult : AsyncCollectionResult
+    internal partial class ResponsesClientGetResponseInputItemsAsyncCollectionResult : AsyncCollectionResult
     {
-        private readonly OpenAIResponseClient _client;
+        private readonly ResponsesClient _client;
         private readonly string _responseId;
         private readonly int? _limit;
         private readonly string _order;
@@ -19,7 +19,7 @@ namespace OpenAI.Responses
         private readonly string _before;
         private readonly RequestOptions _options;
 
-        public OpenAIResponseClientGetResponseInputItemsAsyncCollectionResult(OpenAIResponseClient client, string responseId, int? limit, string order, string after, string before, RequestOptions options)
+        public ResponsesClientGetResponseInputItemsAsyncCollectionResult(ResponsesClient client, string responseId, int? limit, string order, string after, string before, RequestOptions options)
         {
             _client = client;
             _responseId = responseId;
@@ -40,8 +40,8 @@ namespace OpenAI.Responses
                 yield return result;
 
                 // Plugin customization: add hasMore assignment
-                bool hasMore = ((InternalResponseItemList)result).HasMore;
-                nextToken = ((InternalResponseItemList)result).LastId;
+                bool hasMore = ((ResponseItemCollectionPage)result).HasMore;
+                nextToken = ((ResponseItemCollectionPage)result).LastId;
                 // Plugin customization: add hasMore == false check to pagination condition
                 if (nextToken == null || !hasMore)
                 {
@@ -53,7 +53,7 @@ namespace OpenAI.Responses
 
         public override ContinuationToken GetContinuationToken(ClientResult page)
         {
-            string nextPage = ((InternalResponseItemList)page).LastId;
+            string nextPage = ((ResponseItemCollectionPage)page).LastId;
             if (nextPage != null)
             {
                 return ContinuationToken.FromBytes(BinaryData.FromString(nextPage));

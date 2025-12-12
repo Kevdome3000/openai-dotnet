@@ -14,12 +14,12 @@ using OpenAI;
 namespace OpenAI.Responses
 {
     [Experimental("OPENAI001")]
-    public partial class OpenAIResponse
+    public partial class ResponseResult
     {
         [Experimental("SCME0001")]
         private JsonPatch _patch;
 
-        internal OpenAIResponse(IDictionary<string, string> metadata, float? temperature, float? topP, string endUserId, string id, DateTimeOffset createdAt, ResponseError error, ResponseIncompleteStatusDetails incompleteStatusDetails, IEnumerable<ResponseItem> outputItems, bool parallelToolCallsEnabled)
+        internal ResponseResult(IDictionary<string, string> metadata, float? temperature, float? topP, string endUserId, string id, DateTimeOffset createdAt, ResponseError error, ResponseIncompleteStatusDetails incompleteStatusDetails, IEnumerable<ResponseItem> outputItems, bool parallelToolCallsEnabled)
         {
             // Plugin customization: ensure initialization of collections
             Metadata = metadata ?? new ChangeTrackingDictionary<string, string>();
@@ -36,7 +36,7 @@ namespace OpenAI.Responses
         }
 
 #pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
-        internal OpenAIResponse(IDictionary<string, string> metadata, float? temperature, int? topLogProbabilityCount, float? topP, string endUserId, string safetyIdentifier, ResponseServiceTier? serviceTier, string previousResponseId, string model, ResponseReasoningOptions reasoningOptions, bool? backgroundModeEnabled, int? maxOutputTokenCount, int? maxToolCallCount, string instructions, ResponseTextOptions textOptions, IList<ResponseTool> tools, ResponseToolChoice toolChoice, ResponseTruncationMode? truncationMode, string id, string @object, ResponseStatus? status, DateTimeOffset createdAt, ResponseError error, ResponseIncompleteStatusDetails incompleteStatusDetails, IList<ResponseItem> outputItems, ResponseTokenUsage usage, bool parallelToolCallsEnabled, InternalConversation conversation, in JsonPatch patch)
+        internal ResponseResult(IDictionary<string, string> metadata, float? temperature, int? topLogProbabilityCount, float? topP, string endUserId, string safetyIdentifier, ResponseServiceTier? serviceTier, string previousResponseId, string model, ResponseReasoningOptions reasoningOptions, bool? backgroundModeEnabled, int? maxOutputTokenCount, int? maxToolCallCount, string instructions, ResponseTextOptions textOptions, IList<ResponseTool> tools, ResponseToolChoice toolChoice, ResponseTruncationMode? truncationMode, string id, string @object, ResponseStatus? status, DateTimeOffset createdAt, ResponseError error, ResponseIncompleteStatusDetails incompleteStatusDetails, IList<ResponseItem> outputItems, ResponseTokenUsage usage, bool parallelToolCallsEnabled, ResponseConversationOptions conversationOptions, in JsonPatch patch)
         {
             // Plugin customization: ensure initialization of collections
             Metadata = metadata ?? new ChangeTrackingDictionary<string, string>();
@@ -66,7 +66,7 @@ namespace OpenAI.Responses
             OutputItems = outputItems ?? new ChangeTrackingList<ResponseItem>();
             Usage = usage;
             ParallelToolCallsEnabled = parallelToolCallsEnabled;
-            Conversation = conversation;
+            ConversationOptions = conversationOptions;
             _patch = patch;
             _patch.SetPropagators(PropagateSet, PropagateGet);
         }
@@ -79,30 +79,30 @@ namespace OpenAI.Responses
 
         public IDictionary<string, string> Metadata { get; }
 
-        public float? Temperature { get; }
+        public float? Temperature { get; set; }
 
-        public float? TopP { get; }
+        public float? TopP { get; set; }
 
-        public string SafetyIdentifier { get; }
+        public string SafetyIdentifier { get; set; }
 
-        public ResponseServiceTier? ServiceTier { get; }
+        public ResponseServiceTier? ServiceTier { get; set; }
 
-        public string PreviousResponseId { get; }
+        public string PreviousResponseId { get; set; }
 
-        public string Instructions { get; }
+        public string Model { get; set; }
+
+        public string Instructions { get; set; }
 
         public IList<ResponseTool> Tools { get; }
 
-        public string Id { get; }
+        public string Id { get; set; }
 
-        public ResponseStatus? Status { get; }
+        public ResponseStatus? Status { get; set; }
 
-        public DateTimeOffset CreatedAt { get; }
+        public DateTimeOffset CreatedAt { get; set; }
 
-        public ResponseError Error { get; }
+        public ResponseError Error { get; set; }
 
-        public ResponseTokenUsage Usage { get; }
-
-        internal InternalConversation Conversation { get; }
+        public ResponseTokenUsage Usage { get; set; }
     }
 }

@@ -6,12 +6,13 @@ using System;
 using System.ClientModel;
 using System.ClientModel.Primitives;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace OpenAI.Responses
 {
-    internal partial class OpenAIResponseClientGetResponseInputItemsCollectionResult : CollectionResult
+    internal partial class ResponsesClientGetResponseInputItemsAsyncCollectionResultOfT : AsyncCollectionResult<ResponseItem>
     {
-        private readonly OpenAIResponseClient _client;
+        private readonly ResponsesClient _client;
         private readonly string _responseId;
         private readonly int? _limit;
         private readonly string _order;
@@ -19,7 +20,7 @@ namespace OpenAI.Responses
         private readonly string _before;
         private readonly RequestOptions _options;
 
-        public OpenAIResponseClientGetResponseInputItemsCollectionResult(OpenAIResponseClient client, string responseId, int? limit, string order, string after, string before, RequestOptions options)
+        public ResponsesClientGetResponseInputItemsAsyncCollectionResultOfT(ResponsesClient client, string responseId, int? limit, string order, string after, string before, RequestOptions options)
         {
             _client = client;
             _responseId = responseId;
@@ -30,18 +31,18 @@ namespace OpenAI.Responses
             _options = options;
         }
 
-        public override IEnumerable<ClientResult> GetRawPages()
+        public override async IAsyncEnumerable<ClientResult> GetRawPagesAsync()
         {
             PipelineMessage message = _client.CreateGetResponseInputItemsRequest(_responseId, _limit, _order, _after, _before, _options);
             string nextToken = null;
             while (true)
             {
-                ClientResult result = ClientResult.FromResponse(_client.Pipeline.ProcessMessage(message, _options));
+                ClientResult result = ClientResult.FromResponse(await _client.Pipeline.ProcessMessageAsync(message, _options).ConfigureAwait(false));
                 yield return result;
 
                 // Plugin customization: add hasMore assignment
-                bool hasMore = ((InternalResponseItemList)result).HasMore;
-                nextToken = ((InternalResponseItemList)result).LastId;
+                bool hasMore = ((ResponseItemCollectionPage)result).HasMore;
+                nextToken = ((ResponseItemCollectionPage)result).LastId;
                 // Plugin customization: add hasMore == false check to pagination condition
                 if (nextToken == null || !hasMore)
                 {
@@ -53,7 +54,7 @@ namespace OpenAI.Responses
 
         public override ContinuationToken GetContinuationToken(ClientResult page)
         {
-            string nextPage = ((InternalResponseItemList)page).LastId;
+            string nextPage = ((ResponseItemCollectionPage)page).LastId;
             if (nextPage != null)
             {
                 return ContinuationToken.FromBytes(BinaryData.FromString(nextPage));
@@ -61,6 +62,15 @@ namespace OpenAI.Responses
             else
             {
                 return null;
+            }
+        }
+
+        protected override async IAsyncEnumerable<ResponseItem> GetValuesFromPageAsync(ClientResult page)
+        {
+            foreach (ResponseItem item in ((ResponseItemCollectionPage)page).Data)
+            {
+                yield return item;
+                await Task.Yield();
             }
         }
     }
