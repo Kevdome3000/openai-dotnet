@@ -70,16 +70,15 @@
 
   <ItemGroup>
     <PackageReference Include="System.ClientModel" Version="1.8.1" />
-    <PackageReference Include="System.Net.ServerSentEvents" Version="10.0.0" />
-  </ItemGroup>
-
-  <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">
-    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="10.0.0" />
+    <PackageReference Include="System.Net.ServerSentEvents" Version="10.0.1" />
   </ItemGroup>
 
   <!-- Build-only dependencies -->
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="10.0.1" />
   </ItemGroup>
 
   <!-- Build and release configuration -->
