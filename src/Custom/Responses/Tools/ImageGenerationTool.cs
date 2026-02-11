@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using Microsoft.TypeSpec.Generator.Customizations;
 
 namespace OpenAI.Responses;
 
@@ -23,5 +23,6 @@ public partial class ImageGenerationTool
     public int? PartialImageCount { get; set; }
 
     // CUSTOM: Convert to string to ensure backwards compatibility.
+    [CodeGenMember("Model")]
     public string Model { get; set; }
 }

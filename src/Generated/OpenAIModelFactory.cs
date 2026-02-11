@@ -125,59 +125,6 @@ namespace OpenAI
             return new AssistantDeletionResult(assistantId, deleted, "assistant.deleted", additionalBinaryDataProperties: null);
         }
 
-        public static TranscribedWord TranscribedWord(string word = default, TimeSpan startTime = default, TimeSpan endTime = default)
-        {
-            return new TranscribedWord(word, startTime, endTime, additionalBinaryDataProperties: null);
-        }
-
-        public static TranscribedSegment TranscribedSegment(int id = default, int seekOffset = default, TimeSpan startTime = default, TimeSpan endTime = default, string text = default, ReadOnlyMemory<int> tokenIds = default, float temperature = default, float averageLogProbability = default, float compressionRatio = default, float noSpeechProbability = default)
-        {
-            return new TranscribedSegment(
-                id,
-                seekOffset,
-                startTime,
-                endTime,
-                text,
-                tokenIds,
-                temperature,
-                averageLogProbability,
-                compressionRatio,
-                noSpeechProbability,
-                additionalBinaryDataProperties: null);
-        }
-
-        public static StreamingAudioTranscriptionUpdate StreamingAudioTranscriptionUpdate(string kind = default)
-        {
-            return new InternalUnknownCreateTranscriptionResponseStreamEvent(new StreamingAudioTranscriptionUpdateKind(kind), additionalBinaryDataProperties: null);
-        }
-
-        public static StreamingAudioTranscriptionTextDeltaUpdate StreamingAudioTranscriptionTextDeltaUpdate(string delta = default, IEnumerable<AudioTokenLogProbabilityDetails> transcriptionTokenLogProbabilities = default)
-        {
-            transcriptionTokenLogProbabilities ??= new ChangeTrackingList<AudioTokenLogProbabilityDetails>();
-
-            return new StreamingAudioTranscriptionTextDeltaUpdate(StreamingAudioTranscriptionUpdateKind.TranscriptTextDelta, additionalBinaryDataProperties: null, delta, transcriptionTokenLogProbabilities.ToList());
-        }
-
-        public static StreamingAudioTranscriptionTextDoneUpdate StreamingAudioTranscriptionTextDoneUpdate(string text = default, IEnumerable<AudioTokenLogProbabilityDetails> transcriptionTokenLogProbabilities = default)
-        {
-            transcriptionTokenLogProbabilities ??= new ChangeTrackingList<AudioTokenLogProbabilityDetails>();
-
-            return new StreamingAudioTranscriptionTextDoneUpdate(StreamingAudioTranscriptionUpdateKind.TranscriptTextDone, additionalBinaryDataProperties: null, text, transcriptionTokenLogProbabilities.ToList());
-        }
-
-        public static AudioTranslation AudioTranslation(string language = default, TimeSpan? duration = default, string text = default, IEnumerable<TranscribedSegment> segments = default)
-        {
-            segments ??= new ChangeTrackingList<TranscribedSegment>();
-
-            return new AudioTranslation(
-                "translate",
-                language,
-                duration,
-                text,
-                segments.ToList(),
-                additionalBinaryDataProperties: null);
-        }
-
         public static ChatOutputAudio ChatOutputAudio(string id = default, DateTimeOffset expiresAt = default, BinaryData audioBytes = default, string transcript = default)
         {
             return new ChatOutputAudio(id, expiresAt, audioBytes, transcript, default);
@@ -358,56 +305,6 @@ namespace OpenAI
             return new DeleteContainerFileResponse(id, "container.file.deleted", true, additionalBinaryDataProperties: null);
         }
 
-        public static OpenAIEmbeddingCollection OpenAIEmbeddingCollection(IEnumerable<OpenAIEmbedding> data = default, string model = default, string @object = default, EmbeddingTokenUsage usage = default)
-        {
-            data ??= new ChangeTrackingList<OpenAIEmbedding>();
-
-            return new OpenAIEmbeddingCollection(data.ToList(), model, @object, usage, default);
-        }
-
-        public static OpenAIEmbedding OpenAIEmbedding(int index = default, BinaryData embeddingProperty = default, string @object = default)
-        {
-            return new OpenAIEmbedding(index, embeddingProperty, @object, default);
-        }
-
-        public static EmbeddingTokenUsage EmbeddingTokenUsage(int inputTokenCount = default, int totalTokenCount = default)
-        {
-            return new EmbeddingTokenUsage(inputTokenCount, totalTokenCount, default);
-        }
-
-        public static OpenAIFileCollection OpenAIFileCollection(IEnumerable<OpenAIFile> data = default, string @object = default, string firstId = default, string lastId = default, bool hasMore = default)
-        {
-            data ??= new ChangeTrackingList<OpenAIFile>();
-
-            return new OpenAIFileCollection(
-                data.ToList(),
-                @object,
-                firstId,
-                lastId,
-                hasMore,
-                serializedAdditionalRawData: null);
-        }
-
-        public static OpenAIFile OpenAIFile(string id = default, long? sizeInBytesLong = default, DateTimeOffset createdAt = default, DateTimeOffset? expiresAt = default, string filename = default, FilePurpose purpose = default, FileStatus status = default, string statusDetails = default)
-        {
-            return new OpenAIFile(
-                id,
-                sizeInBytesLong,
-                createdAt,
-                expiresAt,
-                filename,
-                "file",
-                purpose,
-                status,
-                statusDetails,
-                additionalBinaryDataProperties: null);
-        }
-
-        public static FileDeletionResult FileDeletionResult(string fileId = default, bool deleted = default)
-        {
-            return new FileDeletionResult(fileId, "file", deleted, additionalBinaryDataProperties: null);
-        }
-
         public static HyperparametersForSupervised HyperparametersForSupervised(BinaryData batchSize = default, BinaryData learningRateMultiplier = default, BinaryData nEpochs = default)
         {
             return new HyperparametersForSupervised(batchSize, learningRateMultiplier, nEpochs, additionalBinaryDataProperties: null);
@@ -569,9 +466,9 @@ namespace OpenAI
             return new WebSearchToolFilters(allowedDomains.ToList(), default);
         }
 
-        public static ImageGenerationToolInputImageMask ImageGenerationToolInputImageMask(string imageUrl = default, string fileId = default)
+        public static ImageGenerationToolInputImageMask ImageGenerationToolInputImageMask(Uri imageUri = default, string fileId = default)
         {
-            return new ImageGenerationToolInputImageMask(imageUrl, fileId, default);
+            return new ImageGenerationToolInputImageMask(imageUri, fileId, default);
         }
 
         public static McpToolFilter McpToolFilter(IEnumerable<string> toolNames = default, bool? isReadOnly = default)
@@ -779,74 +676,6 @@ namespace OpenAI
                 default);
         }
 
-        public static ImageGenerationOptions ImageGenerationOptions(string prompt = default, InternalCreateImageRequestModel? model = default, long? n = default, GeneratedImageQuality? quality = default, GeneratedImageFormat? responseFormat = default, GeneratedImageFileFormat? outputFileFormat = default, int? outputCompressionFactor = default, GeneratedImageSize? size = default, GeneratedImageModerationLevel? moderationLevel = default, GeneratedImageBackground? background = default, GeneratedImageStyle? style = default, string endUserId = default)
-        {
-            return new ImageGenerationOptions(
-                prompt,
-                model,
-                n,
-                quality,
-                responseFormat,
-                outputFileFormat,
-                outputCompressionFactor,
-                size,
-                moderationLevel,
-                background,
-                style,
-                endUserId,
-                additionalBinaryDataProperties: null);
-        }
-
-        public static GeneratedImageCollection GeneratedImageCollection(DateTimeOffset createdAt = default, IEnumerable<GeneratedImage> data = default, ImageTokenUsage usage = default)
-        {
-            data ??= new ChangeTrackingList<GeneratedImage>();
-
-            return new GeneratedImageCollection(createdAt, data.ToList(), usage, additionalBinaryDataProperties: null);
-        }
-
-        public static GeneratedImage GeneratedImage(BinaryData imageBytes = default, Uri imageUri = default, string revisedPrompt = default)
-        {
-            return new GeneratedImage(imageBytes, imageUri, revisedPrompt, additionalBinaryDataProperties: null);
-        }
-
-        public static ImageTokenUsage ImageTokenUsage(int totalTokenCount = default, int inputTokenCount = default, int outputTokenCount = default, ImageInputTokenUsageDetails inputTokenDetails = default)
-        {
-            return new ImageTokenUsage(totalTokenCount, inputTokenCount, outputTokenCount, inputTokenDetails, additionalBinaryDataProperties: null);
-        }
-
-        public static ImageInputTokenUsageDetails ImageInputTokenUsageDetails(int textTokenCount = default, int imageTokenCount = default)
-        {
-            return new ImageInputTokenUsageDetails(textTokenCount, imageTokenCount, additionalBinaryDataProperties: null);
-        }
-
-        public static ImageEditOptions ImageEditOptions(BinaryData image = default, string prompt = default, BinaryData mask = default, GeneratedImageBackground? background = default, InternalCreateImageEditRequestModel? model = default, long? n = default, GeneratedImageSize? size = default, GeneratedImageFormat? responseFormat = default, string endUserId = default, GeneratedImageQuality? quality = default)
-        {
-            return new ImageEditOptions(
-                image,
-                prompt,
-                mask,
-                background,
-                model,
-                n,
-                size,
-                responseFormat,
-                endUserId,
-                quality,
-                additionalBinaryDataProperties: null);
-        }
-
-        public static ImageVariationOptions ImageVariationOptions(BinaryData image = default, InternalCreateImageVariationRequestModel? model = default, long? n = default, GeneratedImageFormat? responseFormat = default, GeneratedImageSize? size = default, string endUserId = default)
-        {
-            return new ImageVariationOptions(
-                image,
-                model,
-                n,
-                responseFormat,
-                size,
-                endUserId,
-                additionalBinaryDataProperties: null);
-        }
-
         public static MessageCreationOptions MessageCreationOptions(Assistants.MessageRole role = default, IEnumerable<MessageContent> content = default, IEnumerable<MessageCreationAttachment> attachments = default, IDictionary<string, string> metadata = default)
         {
             content ??= new ChangeTrackingList<MessageContent>();
@@ -902,18 +731,6 @@ namespace OpenAI
         public static MessageDeletionResult MessageDeletionResult(string messageId = default, bool deleted = default)
         {
             return new MessageDeletionResult(messageId, deleted, "thread.message.deleted", additionalBinaryDataProperties: null);
-        }
-
-        public static ModerationResultCollection ModerationResultCollection(string id = default, string model = default, IEnumerable<ModerationResult> results = default)
-        {
-            results ??= new ChangeTrackingList<ModerationResult>();
-
-            return new ModerationResultCollection(id, model, results.ToList());
-        }
-
-        public static ModerationResult ModerationResult(bool flagged = default)
-        {
-            return new ModerationResult(flagged, additionalBinaryDataProperties: null);
         }
 
         public static ThreadCreationOptions ThreadCreationOptions(IEnumerable<MessageCreationOptions> internalMessages = default, ToolResources toolResources = default, IDictionary<string, string> metadata = default)
@@ -1154,23 +971,6 @@ namespace OpenAI
             return new FileFromStoreRemovalResult(fileId, removed, "vector_store.file.deleted", additionalBinaryDataProperties: null);
         }
 
-        public static OpenAIModelCollection OpenAIModelCollection(string @object = default, IEnumerable<OpenAIModel> data = default)
-        {
-            data ??= new ChangeTrackingList<OpenAIModel>();
-
-            return new OpenAIModelCollection(@object, data.ToList(), serializedAdditionalRawData: null);
-        }
-
-        public static OpenAIModel OpenAIModel(string id = default, DateTimeOffset createdAt = default, string ownedBy = default)
-        {
-            return new OpenAIModel(id, createdAt, "model", ownedBy, additionalBinaryDataProperties: null);
-        }
-
-        public static ModelDeletionResult ModelDeletionResult(string modelId = default, bool deleted = default)
-        {
-            return new ModelDeletionResult(modelId, deleted, "model", additionalBinaryDataProperties: null);
-        }
-
         public static InputTranscriptionOptions InputTranscriptionOptions(InputTranscriptionModel? model = default, string language = default, string prompt = default)
         {
             return new InputTranscriptionOptions(model, language, prompt, additionalBinaryDataProperties: null);
@@ -1318,6 +1118,212 @@ namespace OpenAI
             return new ItemRetrievedUpdate(RealtimeUpdateKind.ItemRetrieved, eventId, additionalBinaryDataProperties: null, item);
         }
 
+        public static OpenAIFile OpenAIFile(string id = default, long? sizeInBytesLong = default, DateTimeOffset createdAt = default, DateTimeOffset? expiresAt = default, string filename = default, FilePurpose purpose = default, FileStatus status = default, string statusDetails = default)
+        {
+            return new OpenAIFile(
+                id,
+                sizeInBytesLong,
+                createdAt,
+                expiresAt,
+                filename,
+                "file",
+                purpose,
+                status,
+                statusDetails,
+                additionalBinaryDataProperties: null);
+        }
+
+        public static TranscribedWord TranscribedWord(string word = default, TimeSpan startTime = default, TimeSpan endTime = default)
+        {
+            return new TranscribedWord(word, startTime, endTime, additionalBinaryDataProperties: null);
+        }
+
+        public static TranscribedSegment TranscribedSegment(int id = default, int seekOffset = default, TimeSpan startTime = default, TimeSpan endTime = default, string text = default, ReadOnlyMemory<int> tokenIds = default, float temperature = default, float averageLogProbability = default, float compressionRatio = default, float noSpeechProbability = default)
+        {
+            return new TranscribedSegment(
+                id,
+                seekOffset,
+                startTime,
+                endTime,
+                text,
+                tokenIds,
+                temperature,
+                averageLogProbability,
+                compressionRatio,
+                noSpeechProbability,
+                additionalBinaryDataProperties: null);
+        }
+
+        public static AudioTranslation AudioTranslation(string language = default, TimeSpan? duration = default, string text = default, IEnumerable<TranscribedSegment> segments = default)
+        {
+            segments ??= new ChangeTrackingList<TranscribedSegment>();
+
+            return new AudioTranslation(language, duration, text, segments.ToList(), additionalBinaryDataProperties: null);
+        }
+
+        public static OpenAIEmbeddingCollection OpenAIEmbeddingCollection(IEnumerable<OpenAIEmbedding> items = default, string model = default, string @object = default, EmbeddingTokenUsage usage = default)
+        {
+            items ??= new ChangeTrackingList<OpenAIEmbedding>();
+
+            return new OpenAIEmbeddingCollection(items.ToList(), model, @object, usage, default);
+        }
+
+        public static OpenAIEmbedding OpenAIEmbedding(int index = default, BinaryData embeddingProperty = default, string @object = default)
+        {
+            return new OpenAIEmbedding(index, embeddingProperty, @object, default);
+        }
+
+        public static EmbeddingTokenUsage EmbeddingTokenUsage(int inputTokenCount = default, int totalTokenCount = default)
+        {
+            return new EmbeddingTokenUsage(inputTokenCount, totalTokenCount, default);
+        }
+
+        public static OpenAIFileCollection OpenAIFileCollection(IEnumerable<OpenAIFile> data = default, string @object = default, string firstId = default, string lastId = default, bool hasMore = default)
+        {
+            data ??= new ChangeTrackingList<OpenAIFile>();
+
+            return new OpenAIFileCollection(
+                data.ToList(),
+                @object,
+                firstId,
+                lastId,
+                hasMore,
+                serializedAdditionalRawData: null);
+        }
+
+        public static FileDeletionResult FileDeletionResult(string fileId = default, bool deleted = default)
+        {
+            return new FileDeletionResult(fileId, "file", deleted, additionalBinaryDataProperties: null);
+        }
+
+        public static ImageEditOptions ImageEditOptions(BinaryData image = default, string prompt = default, BinaryData mask = default, GeneratedImageBackground? background = default, InternalCreateImageEditRequestModel? model = default, long? n = default, GeneratedImageSize? size = default, GeneratedImageFormat? responseFormat = default, GeneratedImageFileFormat? outputFileFormat = default, int? outputCompressionFactor = default, string endUserId = default, ImageInputFidelity? inputFidelity = default, bool? stream = default, int? partialImages = default, GeneratedImageQuality? quality = default)
+        {
+            return new ImageEditOptions(
+                image,
+                prompt,
+                mask,
+                background,
+                model,
+                n,
+                size,
+                responseFormat,
+                outputFileFormat,
+                outputCompressionFactor,
+                endUserId,
+                inputFidelity,
+                stream,
+                partialImages,
+                quality,
+                additionalBinaryDataProperties: null);
+        }
+
+        public static GeneratedImageCollection GeneratedImageCollection(DateTimeOffset createdAt = default, IEnumerable<GeneratedImage> items = default, GeneratedImageBackground? background = default, GeneratedImageFileFormat? outputFileFormat = default, GeneratedImageSize? size = default, GeneratedImageQuality? quality = default, ImageTokenUsage usage = default)
+        {
+            items ??= new ChangeTrackingList<GeneratedImage>();
+
+            return new GeneratedImageCollection(
+                createdAt,
+                items.ToList(),
+                background,
+                outputFileFormat,
+                size,
+                quality,
+                usage,
+                additionalBinaryDataProperties: null);
+        }
+
+        public static GeneratedImage GeneratedImage(BinaryData imageBytes = default, Uri imageUri = default, string revisedPrompt = default)
+        {
+            return new GeneratedImage(imageBytes, imageUri, revisedPrompt, additionalBinaryDataProperties: null);
+        }
+
+        public static ImageTokenUsage ImageTokenUsage(long inputTokenCount = default, long totalTokenCount = default, long outputTokenCount = default, ImageOutputTokenUsageDetails outputTokenDetails = default, ImageInputTokenUsageDetails inputTokenDetails = default)
+        {
+            return new ImageTokenUsage(
+                inputTokenCount,
+                totalTokenCount,
+                outputTokenCount,
+                outputTokenDetails,
+                inputTokenDetails,
+                additionalBinaryDataProperties: null);
+        }
+
+        public static ImageOutputTokenUsageDetails ImageOutputTokenUsageDetails(long imageTokenCount = default, long textTokenCount = default)
+        {
+            return new ImageOutputTokenUsageDetails(imageTokenCount, textTokenCount, additionalBinaryDataProperties: null);
+        }
+
+        public static ImageInputTokenUsageDetails ImageInputTokenUsageDetails(long textTokenCount = default, long imageTokenCount = default)
+        {
+            return new ImageInputTokenUsageDetails(textTokenCount, imageTokenCount, additionalBinaryDataProperties: null);
+        }
+
+        public static ImageGenerationOptions ImageGenerationOptions(string prompt = default, InternalCreateImageRequestModel? model = default, long? n = default, GeneratedImageQuality? quality = default, GeneratedImageFormat? responseFormat = default, GeneratedImageFileFormat? outputFileFormat = default, int? outputCompressionFactor = default, bool? stream = default, int? partialImages = default, GeneratedImageSize? size = default, GeneratedImageModerationLevel? moderationLevel = default, GeneratedImageBackground? background = default, GeneratedImageStyle? style = default, string endUserId = default)
+        {
+            return new ImageGenerationOptions(
+                prompt,
+                model,
+                n,
+                quality,
+                responseFormat,
+                outputFileFormat,
+                outputCompressionFactor,
+                stream,
+                partialImages,
+                size,
+                moderationLevel,
+                background,
+                style,
+                endUserId,
+                additionalBinaryDataProperties: null);
+        }
+
+        public static ImageVariationOptions ImageVariationOptions(BinaryData image = default, InternalCreateImageVariationRequestModel? model = default, long? n = default, GeneratedImageFormat? responseFormat = default, GeneratedImageSize? size = default, string endUserId = default)
+        {
+            return new ImageVariationOptions(
+                image,
+                model,
+                n,
+                responseFormat,
+                size,
+                endUserId,
+                additionalBinaryDataProperties: null);
+        }
+
+        public static OpenAIModelCollection OpenAIModelCollection(string @object = default, IEnumerable<OpenAIModel> items = default)
+        {
+            items ??= new ChangeTrackingList<OpenAIModel>();
+
+            return new OpenAIModelCollection(@object, items.ToList(), additionalBinaryDataProperties: null);
+        }
+
+        public static OpenAIModel OpenAIModel(string id = default, DateTimeOffset createdAt = default, string ownedBy = default)
+        {
+            return new OpenAIModel(id, createdAt, "model", ownedBy, additionalBinaryDataProperties: null);
+        }
+
+        public static ModelDeletionResult ModelDeletionResult(string modelId = default, bool deleted = default, string @object = default)
+        {
+            return new ModelDeletionResult(modelId, deleted, @object, additionalBinaryDataProperties: null);
+        }
+
+        public static ModerationInputPart ModerationInputPart(string kind = default)
+        {
+            return new InternalUnknownModerationInputPart(kind.ToModerationInputPartKind(), additionalBinaryDataProperties: null);
+        }
+
+        public static ModerationResultCollection ModerationResultCollection(string id = default, string model = default, IEnumerable<ModerationResult> results = default)
+        {
+            results ??= new ChangeTrackingList<ModerationResult>();
+
+            return new ModerationResultCollection(id, model, results.ToList());
+        }
+
+        public static ModerationResult ModerationResult(bool flagged = default)
+        {
+            return new ModerationResult(flagged, additionalBinaryDataProperties: null);
+        }
+
         public static ChatFunctionChoice ChatFunctionChoice()
         {
             return new ChatFunctionChoice(default);
@@ -1353,21 +1359,28 @@ namespace OpenAI
             return new AudioTokenLogProbabilityDetails(token, logProbability, utf8Bytes, additionalBinaryDataProperties: null);
         }
 
-        public static AudioTranscription AudioTranscription(string language = default, TimeSpan? duration = default, string text = default, IEnumerable<TranscribedWord> words = default, IEnumerable<TranscribedSegment> segments = default, IEnumerable<AudioTokenLogProbabilityDetails> transcriptionTokenLogProbabilities = default)
+        public static StreamingAudioTranscriptionUpdate StreamingAudioTranscriptionUpdate(string kind = default)
         {
-            words ??= new ChangeTrackingList<TranscribedWord>();
-            segments ??= new ChangeTrackingList<TranscribedSegment>();
+            return new InternalUnknownCreateTranscriptionResponseStreamEvent(new StreamingAudioTranscriptionUpdateKind(kind), additionalBinaryDataProperties: null);
+        }
+
+        public static StreamingAudioTranscriptionTextSegmentUpdate StreamingAudioTranscriptionTextSegmentUpdate(string segmentId = default, TimeSpan startTime = default, TimeSpan endTime = default, string text = default, string speakerLabel = default)
+        {
+            return new StreamingAudioTranscriptionTextSegmentUpdate(
+                StreamingAudioTranscriptionUpdateKind.TranscriptTextSegment,
+                additionalBinaryDataProperties: null,
+                segmentId,
+                startTime,
+                endTime,
+                text,
+                speakerLabel);
+        }
+
+        public static StreamingAudioTranscriptionTextDeltaUpdate StreamingAudioTranscriptionTextDeltaUpdate(string delta = default, IEnumerable<AudioTokenLogProbabilityDetails> transcriptionTokenLogProbabilities = default, string segmentId = default)
+        {
             transcriptionTokenLogProbabilities ??= new ChangeTrackingList<AudioTokenLogProbabilityDetails>();
 
-            return new AudioTranscription(
-                "transcribe",
-                language,
-                duration,
-                text,
-                words.ToList(),
-                segments.ToList(),
-                transcriptionTokenLogProbabilities.ToList(),
-                additionalBinaryDataProperties: null);
+            return new StreamingAudioTranscriptionTextDeltaUpdate(StreamingAudioTranscriptionUpdateKind.TranscriptTextDelta, additionalBinaryDataProperties: null, delta, transcriptionTokenLogProbabilities.ToList(), segmentId);
         }
 
         public static BatchCollectionOptions BatchCollectionOptions(string afterId = default, int? pageSizeLimit = default)
