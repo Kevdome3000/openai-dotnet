@@ -13,6 +13,7 @@
     <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.3" />
     <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.3" />
     <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.3" />
+    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.3" />
     <PackageVersion Include="System.Net.ServerSentEvents" Version="10.0.3" />
   </ItemGroup>
   <!-- Build-only Dependencies -->
