@@ -23,7 +23,7 @@ public abstract partial class FileChunkingStrategy
     /// </remarks>
     public static FileChunkingStrategy Unknown => _otherValue ??= new();
 
-    /// <inheritdoc cref="StaticFileChunkingStrategy.StaticFileChunkingStrategy(int,int)"/>
+    /// <inheritdoc cref="StaticFileChunkingStrategy"/>
     public static FileChunkingStrategy CreateStaticStrategy(
         int maxTokensPerChunk,
         int overlappingTokenCount)

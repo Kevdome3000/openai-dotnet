@@ -21,7 +21,7 @@ public partial class StreamingChatToolCallUpdate
     /// <summary>
     /// The unique identifier of the tool call being streamed, as used with e.g.
     /// <see cref="ChatToolCall.CreateFunctionToolCall(string, string, BinaryData)"/> or
-    /// <see cref="ToolChatMessage.ToolChatMessage(string, string)"/>.
+    /// <see cref="ToolChatMessage"/>.
     /// </summary>
     [CodeGenMember("Id")]
     public string ToolCallId { get; }

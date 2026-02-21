@@ -2,6 +2,9 @@ using Microsoft.TypeSpec.Generator.Customizations;
 
 namespace OpenAI.Assistants;
 
+using System;
+
+
 /// <summary>
 /// Represents an item of image URL content within an Assistants API message.
 /// </summary>
