@@ -8,22 +8,15 @@
   </PropertyGroup>
   <!-- General Dependencies -->
   <ItemGroup>
-    <PackageVersion Include="System.ClientModel" Version="1.10.0" />
-    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.3" />
-    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.5" />
-    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.5" />
-    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.5" />
-    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.5" />
-    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.5" />
-    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.5" />
-    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.5" />
-    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.5" />
-    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.5" />
-    <PackageVersion Include="System.Net.ServerSentEvents" Version="10.0.5" />
+    <PackageVersion Include="System.ClientModel" Version="1.13.0" />
+    <!-- FC-1 incidental fix: deduped 13 -> 1 PackageVersion entries for System.Diagnostics.DiagnosticSource.
+         Pre-existing NU1506 (Warning-as-Error) blocker; kept the highest version that was present (10.0.8). -->
+    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.8" />
+    <PackageVersion Include="System.Net.ServerSentEvents" Version="10.0.8" />
   </ItemGroup>
   <!-- Build-only Dependencies -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.103" PrivateAssets="All" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.300" PrivateAssets="All" />
     <PackageVersion Include="Microsoft.DotNet.GenAPI.Task" Version="10.0.300-preview.0.26072.115" PrivateAssets="All" />
   </ItemGroup>
   <!-- Test-Only Dependencies -->
