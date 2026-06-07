@@ -8,9 +8,10 @@
   </PropertyGroup>
   <!-- General Dependencies -->
   <ItemGroup>
-    <PackageVersion Include="System.ClientModel" Version="1.13.0" />
+    <PackageVersion Include="System.ClientModel" Version="1.14.0" />
     <!-- FC-1 incidental fix: deduped 13 -> 1 PackageVersion entries for System.Diagnostics.DiagnosticSource.
          Pre-existing NU1506 (Warning-as-Error) blocker; kept the highest version that was present (10.0.8). -->
+    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.8" />
     <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.8" />
     <PackageVersion Include="System.Net.ServerSentEvents" Version="10.0.8" />
   </ItemGroup>
