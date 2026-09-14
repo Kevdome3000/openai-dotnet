@@ -8,17 +8,19 @@
   </PropertyGroup>
   <!-- General Dependencies -->
   <ItemGroup>
-    <PackageVersion Include="System.ClientModel" Version="1.14.0" />
+    <PackageVersion Include="System.ClientModel" Version="1.15.0" />
     <!-- Deduped PackageVersion entries for System.Diagnostics.DiagnosticSource to a single 10.0.10 pin.
          Duplicates trigger NU1506 (Warning-as-Error) for every project that references OpenAI.csproj.
          Keep this a SINGLE entry — a bulk version bump previously rewrote each duplicate in place
          (10.0.9 + 5x 10.0.10) instead of collapsing them, which re-broke restore. -->
     <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.10" />
-    <PackageVersion Include="System.Net.ServerSentEvents" Version="10.0.10" />
+    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.12" />
+    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.12" />
+    <PackageVersion Include="System.Net.ServerSentEvents" Version="10.0.12" />
   </ItemGroup>
   <!-- Build-only Dependencies -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.301" PrivateAssets="All" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" PrivateAssets="All" />
     <PackageVersion Include="Microsoft.DotNet.GenAPI.Task" Version="10.0.300-preview.0.26072.115" PrivateAssets="All" />
   </ItemGroup>
   <!-- Test-Only Dependencies -->
