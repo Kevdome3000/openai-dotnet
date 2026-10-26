@@ -20,18 +20,18 @@ public partial class ResponseExamples
             ResponseItem.CreateUserMessageItem("Roll 2d4+1"),
         ];
 
-        CreateResponseOptions options = new(inputItems)
+        CreateResponseOptions options = new("gpt-5", inputItems)
         {
             Tools = {
                 new McpTool(serverLabel: "dmcp", serverUri: new Uri("https://dmcp-server.deno.dev/sse"))
                 {
                     ServerDescription = "A Dungeons and Dragons MCP server to assist with dice rolling.",
-                    ToolCallApprovalPolicy = GlobalMcpToolCallApprovalPolicy.NeverRequireApproval // An implicit conversion is used here for convenience.
+                    ToolCallApprovalPolicy = DefaultMcpToolCallApprovalPolicy.NeverRequireApproval // An implicit conversion is used here for convenience.
                 }
             }
         };
 
-        ResponsesClient client = new(model: "gpt-5", apiKey: Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
+        ResponsesClient client = new(apiKey: Environment.GetEnvironmentVariable("OPENAI_API_KEY"));
 
         ResponseResult response = await client.CreateResponseAsync(options);
 

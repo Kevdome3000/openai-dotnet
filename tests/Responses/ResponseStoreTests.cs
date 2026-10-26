@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace OpenAI.Tests.Responses;
 
-#pragma warning disable OPENAICUA001
+#pragma warning disable OPENAI001
 
 [Category("Responses")]
 [Category("ResponsesStore")]
@@ -22,7 +22,7 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task GetInputItemsCollectionPage()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         // Create a response with multiple input items
         List<ResponseItem> inputItems = new()
@@ -33,7 +33,7 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
             ResponseItem.CreateUserMessageItem("Item 4")
         };
 
-        ResponseResult response = await client.CreateResponseAsync(inputItems);
+        ResponseResult response = await client.CreateResponseAsync(TestModel.Responses, inputItems);
 
         // Paginate through input items with a small page size
         var options = new ResponseItemCollectionOptions(response.Id)
@@ -63,7 +63,7 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task GetInputItemsWithPagination()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         // Create a response with multiple input items
         List<ResponseItem> inputItems = new()
@@ -74,7 +74,7 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
             ResponseItem.CreateUserMessageItem("Item 4")
         };
 
-        ResponseResult response = await client.CreateResponseAsync(inputItems);
+        ResponseResult response = await client.CreateResponseAsync(TestModel.Responses, inputItems);
 
         // Paginate through input items with a small page size
         var options = new ResponseItemCollectionOptions(response.Id)
@@ -100,7 +100,7 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task GetInputItemsWithPaginationNoOptions()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         // Create a response with multiple input items
         List<ResponseItem> inputItems = new()
@@ -111,7 +111,7 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
             ResponseItem.CreateUserMessageItem("Item 4")
         };
 
-        ResponseResult response = await client.CreateResponseAsync(inputItems);
+        ResponseResult response = await client.CreateResponseAsync(TestModel.Responses, inputItems);
 
         int totalCount = 0;
         string lastId = null;
@@ -131,7 +131,7 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task GetInputItemsWithMultiPartPagination()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         string filePath = Path.Join("Assets", "files_travis_favorite_food.pdf");
 
@@ -148,7 +148,7 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
             ResponseItem.CreateUserMessageItem("Item 4")
         };
 
-        ResponseResult response = await client.CreateResponseAsync(inputItems);
+        ResponseResult response = await client.CreateResponseAsync(TestModel.Responses, inputItems);
 
         // Paginate through input items with a small page size
         var options = new ResponseItemCollectionOptions(response.Id)
@@ -183,7 +183,7 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task GetInputItemsWithAfterIdPagination()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         // Ensure multiple input items exist to paginate
         List<ResponseItem> inputItems = new()
@@ -193,7 +193,7 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
             ResponseItem.CreateUserMessageItem("C")
         };
 
-        ResponseResult response = await client.CreateResponseAsync(inputItems);
+        ResponseResult response = await client.CreateResponseAsync(TestModel.Responses, inputItems);
 
         string afterId = null;
         await foreach (ResponseItem first in client.GetResponseInputItemsAsync(new ResponseItemCollectionOptions(response.Id)))
@@ -224,7 +224,7 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task GetInputItemsWithOrderFiltering()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         // Create inputs in a defined sequence
         List<ResponseItem> inputItems = new()
@@ -233,7 +233,7 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
             ResponseItem.CreateUserMessageItem("Second")
         };
 
-        ResponseResult response = await client.CreateResponseAsync(inputItems);
+        ResponseResult response = await client.CreateResponseAsync(TestModel.Responses, inputItems);
 
         // Ascending
         var ascOptions = new ResponseItemCollectionOptions(response.Id)
@@ -273,9 +273,10 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task GetInputItemsHandlesLargeLimits()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         ResponseResult response = await client.CreateResponseAsync(
+            TestModel.Responses,
             [
                 ResponseItem.CreateUserMessageItem("alpha"),
                 ResponseItem.CreateUserMessageItem("beta"),
@@ -298,9 +299,10 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task GetInputItemsWithMinimalLimits()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         ResponseResult response = await client.CreateResponseAsync(
+            TestModel.Responses,
             [
                 ResponseItem.CreateUserMessageItem("x"),
                 ResponseItem.CreateUserMessageItem("y"),
@@ -323,9 +325,10 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task GetInputItemsWithCancellationToken()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         ResponseResult response = await client.CreateResponseAsync(
+            TestModel.Responses,
             [
                 ResponseItem.CreateUserMessageItem("ct1"),
                 ResponseItem.CreateUserMessageItem("ct2"),
@@ -359,9 +362,10 @@ public partial class ResponseStoreTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task GetInputItemsWithCombinedOptions()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         ResponseResult response = await client.CreateResponseAsync(
+            TestModel.Responses,
             [
                 ResponseItem.CreateUserMessageItem("co1"),
                 ResponseItem.CreateUserMessageItem("co2"),

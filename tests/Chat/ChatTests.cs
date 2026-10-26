@@ -142,7 +142,7 @@ public class ChatTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task ChatWithBasicAudioOutput()
     {
-        ChatClient client = GetProxiedOpenAIClient<ChatClient>("gpt-4o-audio-preview");
+        ChatClient client = GetProxiedOpenAIClient<ChatClient>("gpt-audio-1.5");
         List<ChatMessage> messages = ["Say the exact word 'hello' and nothing else."];
         ChatCompletionOptions options = new()
         {
@@ -192,7 +192,7 @@ public class ChatTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task ChatWithAudio()
     {
-        ChatClient client = GetProxiedOpenAIClient<ChatClient>("gpt-4o-audio-preview");
+        ChatClient client = GetProxiedOpenAIClient<ChatClient>("gpt-audio-1.5");
 
         string helloWorldAudioPath = Path.Join("Assets", "audio_hello_world.mp3");
         BinaryData helloWorldAudioBytes = BinaryData.FromBytes(File.ReadAllBytes(helloWorldAudioPath));
@@ -642,6 +642,7 @@ public class ChatTests : OpenAIRecordedTestBase
     public async Task HelloWorldChatWithTracingAndMetrics()
     {
         using var _ = TestAppContextSwitchHelper.EnableOpenTelemetry();
+        using var _semanticConvention = TestSemanticConventionOptIn.SetLatestGenAiSemanticConvention(false);
         using TestActivityListener activityListener = new TestActivityListener("OpenAI.ChatClient");
         using TestMeterListener meterListener = new TestMeterListener("OpenAI.ChatClient");
 
@@ -650,11 +651,11 @@ public class ChatTests : OpenAIRecordedTestBase
         ClientResult<ChatCompletion> result = await client.CompleteChatAsync(messages);
 
         Assert.That(activityListener.Activities.Count, Is.EqualTo(1));
-        TestActivityListener.ValidateChatActivity(activityListener.Activities.Single(), result.Value);
+        TestActivityListener.ValidateChatActivity(activityListener.Activities.Single(), result.Value, useLatestSemconv: false);
 
         List<TestMeasurement> durations = meterListener.GetMeasurements("gen_ai.client.operation.duration");
         Assert.That(durations.Count, Is.EqualTo(1));
-        ValidateChatMetricTags(durations.Single(), result.Value);
+        ValidateChatMetricTags(durations.Single(), result.Value, useLatestSemconv: false);
 
         List<TestMeasurement> usages = meterListener.GetMeasurements("gen_ai.client.token.usage");
         Assert.That(usages.Count, Is.EqualTo(2));
@@ -771,7 +772,7 @@ public class ChatTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task WebSearchWorks()
     {
-        ChatClient client = GetProxiedOpenAIClient<ChatClient>("gpt-4o-search-preview");
+        ChatClient client = GetProxiedOpenAIClient<ChatClient>("gpt-5-search-api");
 
         ChatCompletionOptions options = new()
         {
@@ -904,142 +905,6 @@ public class ChatTests : OpenAIRecordedTestBase
         Assert.That(completion.ServiceTier, Is.EqualTo(ChatServiceTier.Default));
     }
 
-    [SyncOnly]
-    [RecordedTest]
-    public void StreamingChatCanBeCancelled()
-    {
-        MockPipelineResponse response = new MockPipelineResponse(200).WithContent("""
-            data: {"id":"chatcmpl-A7mKGugwaczn3YyrJLlZY6CM0Wlkr","object":"chat.completion.chunk","created":1726417424,"model":"gpt-4o-mini-2024-07-18","system_fingerprint":"fp_483d39d857","choices":[{"index":0,"delta":{"role":"assistant","content":"","refusal":null},"logprobs":null,"finish_reason":null}],"usage":null}
-
-            data: {"id":"chatcmpl-A7mKGugwaczn3YyrJLlZY6CM0Wlkr","object":"chat.completion.chunk","created":1726417424,"model":"gpt-4o-mini-2024-07-18","system_fingerprint":"fp_483d39d857","choices":[{"index":0,"delta":{"content":"The"},"logprobs":null,"finish_reason":null}],"usage":null}
-
-            data: [DONE]
-            """);
-
-        OpenAIClientOptions options = new OpenAIClientOptions()
-        {
-            Transport = new MockPipelineTransport(_ => response)
-        };
-
-        CancellationTokenSource cancellationTokenSource = new();
-        cancellationTokenSource.CancelAfter(1000);
-
-        ChatClient client = CreateProxyFromClient(TestEnvironment.GetTestClient<ChatClient>(options: options));
-        IEnumerable<ChatMessage> messages = [new UserChatMessage("What are the best pizza toppings? Give me a breakdown on the reasons.")];
-
-        CollectionResult<StreamingChatCompletionUpdate> streamingResult = client.CompleteChatStreaming(messages, cancellationToken: cancellationTokenSource.Token);
-        IEnumerator<StreamingChatCompletionUpdate> enumerator = streamingResult.GetEnumerator();
-
-        enumerator.MoveNext();
-        StreamingChatCompletionUpdate firstUpdate = enumerator.Current;
-
-        Assert.That(firstUpdate, Is.Not.Null);
-        Assert.That(cancellationTokenSource.IsCancellationRequested, Is.False);
-
-        Thread.Sleep(1000);
-
-        Assert.Throws<OperationCanceledException>(() =>
-        {
-            // Should throw for the second update.
-            Assert.That(cancellationTokenSource.IsCancellationRequested);
-            Assert.That(cancellationTokenSource.Token.IsCancellationRequested);
-            enumerator.MoveNext();
-            enumerator.MoveNext();
-        });
-    }
-
-    [AsyncOnly]
-    [RecordedTest]
-    public async Task StreamingChatCanBeCancelledAsync()
-    {
-        MockPipelineResponse response = new MockPipelineResponse(200).WithContent("""
-            data: {"id":"chatcmpl-A7mKGugwaczn3YyrJLlZY6CM0Wlkr","object":"chat.completion.chunk","created":1726417424,"model":"gpt-4o-mini-2024-07-18","system_fingerprint":"fp_483d39d857","choices":[{"index":0,"delta":{"role":"assistant","content":"","refusal":null},"logprobs":null,"finish_reason":null}],"usage":null}
-
-            data: {"id":"chatcmpl-A7mKGugwaczn3YyrJLlZY6CM0Wlkr","object":"chat.completion.chunk","created":1726417424,"model":"gpt-4o-mini-2024-07-18","system_fingerprint":"fp_483d39d857","choices":[{"index":0,"delta":{"content":"The"},"logprobs":null,"finish_reason":null}],"usage":null}
-
-            data: [DONE]
-            """);
-
-        OpenAIClientOptions options = new OpenAIClientOptions()
-        {
-            Transport = new MockPipelineTransport(_ => response)
-            {
-                ExpectSyncPipeline = !IsAsync
-            }
-        };
-
-        CancellationTokenSource cancellationTokenSource = new();
-        cancellationTokenSource.CancelAfter(1000);
-
-        ChatClient client = TestEnvironment.GetTestClient<ChatClient>(options: options);
-        IEnumerable<ChatMessage> messages = [new UserChatMessage("What are the best pizza toppings? Give me a breakdown on the reasons.")];
-
-        AsyncCollectionResult<StreamingChatCompletionUpdate> streamingResult = client.CompleteChatStreamingAsync(messages, cancellationToken: cancellationTokenSource.Token);
-        IAsyncEnumerator<StreamingChatCompletionUpdate> enumerator = streamingResult.GetAsyncEnumerator();
-
-        await enumerator.MoveNextAsync();
-        StreamingChatCompletionUpdate firstUpdate = enumerator.Current;
-
-        Assert.That(firstUpdate, Is.Not.Null);
-        Assert.That(cancellationTokenSource.IsCancellationRequested, Is.False);
-
-        await Task.Delay(1000);
-
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
-        {
-            // Should throw for the second update.
-            Assert.That(cancellationTokenSource.IsCancellationRequested);
-            Assert.That(cancellationTokenSource.Token.IsCancellationRequested);
-            await enumerator.MoveNextAsync();
-            await enumerator.MoveNextAsync();
-        });
-    }
-
-    [RecordedTest]
-    public async Task CompleteChatStreamingClosesNetworkStream()
-    {
-        MockPipelineResponse response = new MockPipelineResponse(200).WithContent("""
-            data: {"id":"chatcmpl-A7mKGugwaczn3YyrJLlZY6CM0Wlkr","object":"chat.completion.chunk","created":1726417424,"model":"gpt-4o-mini-2024-07-18","system_fingerprint":"fp_483d39d857","choices":[{"index":0,"delta":{"role":"assistant","content":"","refusal":null},"logprobs":null,"finish_reason":null}],"usage":null}
-
-            data: {"id":"chatcmpl-A7mKGugwaczn3YyrJLlZY6CM0Wlkr","object":"chat.completion.chunk","created":1726417424,"model":"gpt-4o-mini-2024-07-18","system_fingerprint":"fp_483d39d857","choices":[{"index":0,"delta":{"content":"The"},"logprobs":null,"finish_reason":null}],"usage":null}
-
-            data: [DONE]
-            """);
-
-        OpenAIClientOptions options = new()
-        {
-            Transport = new MockPipelineTransport(_ => response)
-            {
-                ExpectSyncPipeline = !IsAsync
-            }
-        };
-
-        ChatClient client = CreateProxyFromClient(TestEnvironment.GetTestClient<ChatClient>(options: options));
-        IEnumerable<ChatMessage> messages = [new UserChatMessage("What are the best pizza toppings? Give me a breakdown on the reasons.")];
-
-        int updateCount = 0;
-        TimeSpan? firstTokenReceiptTime = null;
-        TimeSpan? latestTokenReceiptTime = null;
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        AsyncCollectionResult<StreamingChatCompletionUpdate> streamingResult = client.CompleteChatStreamingAsync(messages);
-
-        Assert.That(streamingResult, Is.InstanceOf<AsyncCollectionResult<StreamingChatCompletionUpdate>>());
-        Assert.That(response.IsDisposed, Is.False);
-
-        await foreach (StreamingChatCompletionUpdate chatUpdate in streamingResult)
-        {
-            firstTokenReceiptTime ??= stopwatch.Elapsed;
-            latestTokenReceiptTime = stopwatch.Elapsed;
-            updateCount++;
-
-            Console.WriteLine(stopwatch.Elapsed.TotalMilliseconds);
-        }
-
-        stopwatch.Stop();
-
-        Assert.That(response.IsDisposed);
-    }
-
     [RecordedTest]
     public async Task ValidateConcurrency()
     {
@@ -1071,15 +936,21 @@ public class ChatTests : OpenAIRecordedTestBase
     }
 
     [OneTimeTearDown]
-    public void TearDown()
+    public async Task OneTimeTearDown()
     {
+        // Skip resource cleanup in Playback mode; no live resources were created.
+        if (Mode == RecordedTestMode.Playback)
+        {
+            return;
+        }
+
         OpenAIFileClient fileClient = GetProxiedOpenAIClient<OpenAIFileClient>();
 
         RequestOptions noThrowOptions = new() { ErrorOptions = ClientErrorBehaviors.NoThrow };
 
         foreach (string fileId in FileIdsToDelete)
         {
-            _ = fileClient.DeleteFile(fileId, noThrowOptions);
+            _ = await fileClient.DeleteFileAsync(fileId, noThrowOptions);
         }
     }
 

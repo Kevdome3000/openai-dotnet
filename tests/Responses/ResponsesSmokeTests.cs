@@ -1,19 +1,104 @@
-﻿using NUnit.Framework;
+using Microsoft.ClientModel.TestFramework.Mocks;
+using NUnit.Framework;
 using OpenAI.Responses;
 using System;
+using System.ClientModel;
 using System.ClientModel.Primitives;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace OpenAI.Tests.Responses;
 
-#pragma warning disable OPENAICUA001
+#pragma warning disable OPENAI001
 
 [Category("Responses")]
 [Category("Smoke")]
 public partial class ResponsesSmokeTests
 {
+    [Test]
+    public void CanCreateResponsesClientFromTopLevelClient()
+    {
+        Uri fakeUri = new("https://example.invalid");
+        ApiKeyCredential fakeCredential = new("sk-not-a-real-credential");
+
+        OpenAIClient topLevelClient = new(fakeCredential, new OpenAIClientOptions()
+        {
+            Endpoint = fakeUri,
+        });
+
+        ResponsesClient responsesClient = topLevelClient.GetResponsesClient();
+
+        Assert.That(responsesClient, Is.Not.Null);
+    }
+
+    [Test]
+    public void TopLevelClientOptionsPersistence()
+    {
+        MockPipelineTransport mockTransport = new(_ => new MockPipelineResponse(200).WithContent(BinaryContent.Create(BinaryData.FromString("{}"))));
+        OpenAIClientOptions options = new()
+        {
+            Transport = mockTransport,
+            Endpoint = new Uri("https://example.invalid/custom/responses/endpoint"),
+        };
+        Uri observedEndpoint = null;
+        options.AddPolicy(new TestPipelinePolicy(message =>
+        {
+            observedEndpoint = message?.Request?.Uri;
+        }),
+        PipelinePosition.PerCall);
+
+        OpenAIClient topLevelClient = new(new ApiKeyCredential("mock-credential"), options);
+        ResponsesClient responsesClient = topLevelClient.GetResponsesClient();
+        ClientResult result = responsesClient.CreateResponse(BinaryContent.Create(BinaryData.FromString("{}")));
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(observedEndpoint, Is.Not.Null);
+        Assert.That(observedEndpoint.AbsoluteUri, Does.Contain("example.invalid/custom/responses/endpoint"));
+    }
+
+    [Test]
+    public async Task StreamingResponseCanProcessUnknownEvent()
+    {
+        const string unknownEventKind = "response.unknown";
+        using MockPipelineResponse response = new MockPipelineResponse(200).WithContent($$"""
+            data: {"type":"response.output_text.delta","sequence_number":0,"item_id":"item_1","output_index":0,"content_index":0,"delta":"Hello"}
+
+            data: {"type":"{{unknownEventKind}}","sequence_number":1}
+
+            data: {"type":"response.output_text.delta","sequence_number":2,"item_id":"item_1","output_index":0,"content_index":0,"delta":" world"}
+
+            data: [DONE]
+            """);
+        ResponsesClientOptions options = new()
+        {
+            Transport = new MockPipelineTransport(_ => response)
+            {
+                ExpectSyncPipeline = false,
+            },
+        };
+        ResponsesClient client = new(new ApiKeyCredential("key"), options);
+        CreateResponseOptions createOptions = new()
+        {
+            Model = "model",
+            StreamingEnabled = true,
+        };
+
+        List<StreamingResponseUpdate> receivedUpdates = [];
+        await foreach (StreamingResponseUpdate update in client.CreateResponseStreamingAsync(createOptions))
+        {
+            receivedUpdates.Add(update);
+        }
+
+        Assert.That(receivedUpdates, Has.Count.EqualTo(3));
+        Assert.That(receivedUpdates[0], Is.InstanceOf<StreamingResponseOutputTextDeltaUpdate>());
+        Assert.That(receivedUpdates[1].Kind, Is.EqualTo(new StreamingResponseUpdateKind(unknownEventKind)));
+        Assert.That(receivedUpdates[2], Is.InstanceOf<StreamingResponseOutputTextDeltaUpdate>());
+    }
+
     [Test]
     public void SerializingMessagesWorks()
     {
@@ -66,6 +151,15 @@ public partial class ResponsesSmokeTests
                 Assert.That(potatoMessage.Role, Is.EqualTo(MessageRole.Unknown));
                 Assert.That(potatoMessage.Content, Has.Count.EqualTo(0));
             });
+    }
+
+    [Test]
+    public void ReasoningResponseItemDeserializesNullStatus()
+    {
+        ReasoningResponseItem reasoningItem = ModelReaderWriter.Read<ReasoningResponseItem>(
+            BinaryData.FromString(@"{""type"":""reasoning"",""status"":null,""summary"":[]}"));
+
+        Assert.That(reasoningItem.Status, Is.Null);
     }
 
     [Test]
@@ -135,6 +229,27 @@ public partial class ResponsesSmokeTests
     }
 
     [Test]
+    public void ContentPartKindSetterUpdatesBackingType()
+    {
+        ResponseContentPart contentPart = ResponseContentPart.CreateInputTextPart("hello");
+
+        PropertyInfo kindProperty = typeof(ResponseContentPart).GetProperty(
+            nameof(ResponseContentPart.Kind),
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        PropertyInfo internalTypeProperty = typeof(ResponseContentPart).GetProperty(
+            "InternalType",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.That(kindProperty, Is.Not.Null);
+        Assert.That(internalTypeProperty, Is.Not.Null);
+
+        kindProperty.SetValue(contentPart, ResponseContentPartKind.OutputText);
+
+        Assert.That(contentPart.Kind, Is.EqualTo(ResponseContentPartKind.OutputText));
+        Assert.That(internalTypeProperty.GetValue(contentPart)?.ToString(), Is.EqualTo("output_text"));
+    }
+
+    [Test]
     public void TextFormatSerialization()
     {
         AssertSerializationRoundTrip<ResponseTextFormat>(
@@ -194,6 +309,32 @@ public partial class ResponsesSmokeTests
     }
 
     [Test]
+    public void StableInputFileUrlContentPartSerialization()
+    {
+        static void AssertExpectedFilePart(ResponseContentPart filePart)
+        {
+            Assert.That(filePart.Kind, Is.EqualTo(ResponseContentPartKind.InputFile));
+            Assert.That(filePart.InputFileUri, Is.EqualTo("https://example.com/document.pdf"));
+            Assert.That(filePart.InputFileId, Is.Null);
+            Assert.That(filePart.InputFileBytes, Is.Null);
+            Assert.That(filePart.InputFileBytesMediaType, Is.Null);
+            Assert.That(filePart.InputFilename, Is.Null);
+        }
+
+        ResponseContentPart filePart = ResponseContentPart.CreateInputFilePart(
+            new Uri("https://example.com/document.pdf"));
+
+        AssertExpectedFilePart(filePart);
+
+        BinaryData serializedFilePart = ModelReaderWriter.Write(filePart);
+        Assert.That(serializedFilePart, Is.Not.Null);
+
+        ResponseContentPart deserializedFilePart = ModelReaderWriter.Read<ResponseContentPart>(serializedFilePart);
+
+        AssertExpectedFilePart(deserializedFilePart);
+    }
+
+    [Test]
     public void StableInputImageDataContentPartSerialization()
     {
         static void AssertExpectedImagePart(ResponseContentPart filePart)
@@ -205,11 +346,13 @@ public partial class ResponsesSmokeTests
         }
 
         string imageMediaType = "image/png";
-        BinaryData imageBytes = BinaryData.FromBytes(Encoding.UTF8.GetBytes("image data"));
-        Uri imageDataUri = new($"data:{imageMediaType};base64,{Convert.ToBase64String(imageBytes.ToArray())}");
+        byte[] imageBuffer = Encoding.UTF8.GetBytes("prefiximage datasuffix");
+        BinaryData imageBytes = BinaryData.FromBytes(
+            imageBuffer.AsMemory("prefix".Length, "image data".Length),
+            imageMediaType);
 
         ResponseContentPart imagePart = ResponseContentPart.CreateInputImagePart(
-            imageDataUri,
+            imageBytes,
             ResponseImageDetailLevel.Low);
 
         AssertExpectedImagePart(imagePart);
@@ -368,6 +511,34 @@ public partial class ResponsesSmokeTests
         AssertExpectedRefusalPart(deserializedFilePart);
     }
 
+    [TestCase("auto")]
+    [TestCase("current_turn")]
+    [TestCase("all_turns")]
+    public void ReasoningContextSerialization(string context)
+    {
+        ResponseReasoningOptions options = new()
+        {
+            Context = new ResponseReasoningContext(context),
+        };
+
+        BinaryData serializedOptions = ModelReaderWriter.Write(options);
+        Assert.That(serializedOptions.ToString(), Is.EqualTo($$"""{"context":"{{context}}"}"""));
+
+        ResponseReasoningOptions deserializedOptions =
+            ModelReaderWriter.Read<ResponseReasoningOptions>(serializedOptions);
+        Assert.That(deserializedOptions.Context?.ToString(), Is.EqualTo(context));
+    }
+
+    [Test]
+    public void ResponseResultDeserializesReasoningContext()
+    {
+        ResponseResult response = ModelReaderWriter.Read<ResponseResult>(
+            BinaryData.FromString("""{"id":"resp_123","reasoning":{"context":"all_turns"}}"""));
+
+        Assert.That(response.ReasoningOptions, Is.Not.Null);
+        Assert.That(response.ReasoningOptions.Context, Is.EqualTo(ResponseReasoningContext.AllTurns));
+    }
+
     private static void AssertSerializationRoundTrip<T>(
         string serializedJson,
         Action<T> instanceAssertionsAction)
@@ -389,7 +560,7 @@ public partial class ResponsesSmokeTests
     [Test]
     [TestCase(true)]
     [TestCase(false)]
-    public void SerializeMCPToolCallPolicyApprovalAsString(bool fromRawJson)
+    public void SerializeMCPToolCallApprovalPolicyAsString(bool fromRawJson)
     {
         McpToolCallApprovalPolicy policy;
 
@@ -403,14 +574,43 @@ public partial class ResponsesSmokeTests
         else
         {
             // We construct a new instance. Later, we serialize it and confirm it was constructed correctly.
-            policy = GlobalMcpToolCallApprovalPolicy.AlwaysRequireApproval;
+            policy = DefaultMcpToolCallApprovalPolicy.AlwaysRequireApproval;
         }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(policy.DefaultPolicy, Is.EqualTo(DefaultMcpToolCallApprovalPolicy.AlwaysRequireApproval));
+            Assert.That(policy.CustomPolicy, Is.Null);
+        });
 
         BinaryData serializedPolicy = ModelReaderWriter.Write(policy);
         using JsonDocument policyAsJson = JsonDocument.Parse(serializedPolicy);
         Assert.That(policyAsJson.RootElement, Is.Not.Null);
         Assert.That(policyAsJson.RootElement.ValueKind, Is.EqualTo(JsonValueKind.String));
         Assert.That(policyAsJson.RootElement.ToString(), Is.EqualTo("always"));
+    }
+
+    [Test]
+    public void MCPToolCallApprovalPolicyRejectsNullComponents()
+    {
+        Assert.Throws<ArgumentNullException>(() => new McpToolCallApprovalPolicy((CustomMcpToolCallApprovalPolicy)null));
+    }
+
+    [Test]
+    public void MCPToolCallApprovalPolicyImplicitConversionsPreserveNull()
+    {
+        CustomMcpToolCallApprovalPolicy customPolicy = null;
+        McpToolCallApprovalPolicy policy = customPolicy;
+
+        Assert.That(policy, Is.Null);
+    }
+
+    [Test]
+    public void DeserializeNullMCPToolCallApprovalPolicy()
+    {
+        McpToolCallApprovalPolicy policy = ModelReaderWriter.Read<McpToolCallApprovalPolicy>(BinaryData.FromString("null"));
+
+        Assert.That(policy, Is.Null);
     }
 
     [Test]
@@ -456,6 +656,12 @@ public partial class ResponsesSmokeTests
             };
         }
 
+        Assert.Multiple(() =>
+        {
+            Assert.That(policy.DefaultPolicy, Is.Null);
+            Assert.That(policy.CustomPolicy, Is.Not.Null);
+        });
+
         BinaryData serializedPolicy = ModelReaderWriter.Write(policy);
         using JsonDocument policyAsJson = JsonDocument.Parse(serializedPolicy);
         Assert.That(policyAsJson.RootElement, Is.Not.Null);
@@ -493,6 +699,212 @@ public partial class ResponsesSmokeTests
     }
 
     [Test]
+    public void MCPToolCallApprovalPolicyPropagatesJsonPatchToObjectComponent()
+    {
+        CustomMcpToolCallApprovalPolicy customPolicy = new()
+        {
+            ToolsAlwaysRequiringApproval = new McpToolFilter()
+        };
+        McpTool tool = ResponseTool.CreateMcpTool(
+            "test",
+            new Uri("https://example.com"),
+            toolCallApprovalPolicy: new McpToolCallApprovalPolicy(customPolicy));
+
+#pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+        tool.Patch.Set("$.require_approval.always.additional_property"u8, "patched");
+#pragma warning restore SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+
+        using JsonDocument json = JsonDocument.Parse(ModelReaderWriter.Write(tool));
+        JsonElement additionalProperty = json.RootElement
+            .GetProperty("require_approval")
+            .GetProperty("always")
+            .GetProperty("additional_property");
+        Assert.That(additionalProperty.GetString(), Is.EqualTo("patched"));
+    }
+
+    [Test]
+    public void MCPToolCallApprovalPolicySupportsRootJsonPatchFromContainingModel()
+    {
+        BinaryData data = BinaryData.FromString("""
+        {
+            "type": "mcp",
+            "server_label": "test",
+            "require_approval": {
+                "always": {}
+            }
+        }
+        """);
+        McpTool tool = ModelReaderWriter.Read<McpTool>(data);
+
+#pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+        tool.Patch.Set("$.require_approval"u8, "\"never\""u8);
+#pragma warning restore SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+
+        using JsonDocument json = JsonDocument.Parse(ModelReaderWriter.Write(tool));
+        Assert.That(json.RootElement.GetProperty("require_approval").GetString(), Is.EqualTo("never"));
+    }
+
+    [TestCase("[]")]
+    [TestCase("42")]
+    [TestCase("true")]
+    public void DeserializeMCPToolCallApprovalPolicyRejectsUnsupportedJsonShapes(string json)
+    {
+        BinaryData data = BinaryData.FromString(json);
+
+        Assert.Throws<JsonException>(() => ModelReaderWriter.Read<McpToolCallApprovalPolicy>(data));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void DeserializeMCPAllowedTools(bool useShorthandInput)
+    {
+        BinaryData data = BinaryData.FromString(useShorthandInput
+            ? """{"type":"mcp","server_label":"test","allowed_tools":["search"]}"""
+            : """{"type":"mcp","server_label":"test","allowed_tools":{"tool_names":["search"],"read_only":true}}""");
+
+        McpTool tool = ModelReaderWriter.Read<McpTool>(data);
+
+        Assert.That(tool.AllowedTools.ToolNames, Is.EqualTo(new[] { "search" }));
+        Assert.That(tool.AllowedTools.IsReadOnly, Is.EqualTo(useShorthandInput ? null : true));
+        using JsonDocument json = JsonDocument.Parse(ModelReaderWriter.Write(tool));
+        Assert.That(json.RootElement.GetProperty("allowed_tools").ValueKind, Is.EqualTo(JsonValueKind.Object));
+    }
+
+    [Test]
+    public void DeserializeMCPAllowedToolsPreservesLonghandFields()
+    {
+        McpTool tool = ModelReaderWriter.Read<McpTool>(BinaryData.FromString(
+            """{"type":"mcp","server_label":"test","allowed_tools":{"tool_names":["search"],"read_only":true}}"""));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(tool.AllowedTools.ToolNames, Is.EqualTo(new[] { "search" }));
+            Assert.That(tool.AllowedTools.IsReadOnly, Is.True);
+        }
+
+        using JsonDocument json = JsonDocument.Parse(ModelReaderWriter.Write(tool));
+        JsonElement allowedTools = json.RootElement.GetProperty("allowed_tools");
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(allowedTools.GetProperty("tool_names")[0].GetString(), Is.EqualTo("search"));
+            Assert.That(allowedTools.GetProperty("read_only").GetBoolean(), Is.True);
+        }
+    }
+
+    [Test]
+    public void DeserializeEmptyMCPAllowedTools()
+    {
+        McpTool tool = ModelReaderWriter.Read<McpTool>(BinaryData.FromString(
+            """{"type":"mcp","server_label":"test","allowed_tools":[]}"""));
+
+        Assert.That(tool.AllowedTools, Is.Not.Null);
+        Assert.That(tool.AllowedTools.ToolNames, Is.Empty);
+
+#pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+        tool.AllowedTools.Patch.Set("$.additional_property"u8, "\"patched\""u8);
+#pragma warning restore SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+
+        using JsonDocument json = JsonDocument.Parse(ModelReaderWriter.Write(tool));
+        JsonElement allowedTools = json.RootElement.GetProperty("allowed_tools");
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(allowedTools.GetProperty("tool_names").GetArrayLength(), Is.Zero);
+            Assert.That(allowedTools.GetProperty("additional_property").GetString(), Is.EqualTo("patched"));
+        }
+    }
+
+    [Test]
+    public void DeserializeMCPAllowedToolsWithEmptyToolNames()
+    {
+        McpTool tool = ModelReaderWriter.Read<McpTool>(BinaryData.FromString(
+            """{"type":"mcp","server_label":"test","allowed_tools":{"tool_names":[]}}"""));
+
+        Assert.That(tool.AllowedTools, Is.Not.Null);
+        Assert.That(tool.AllowedTools.ToolNames, Is.Empty);
+
+#pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+        tool.AllowedTools.Patch.Set("$.additional_property"u8, "\"patched\""u8);
+#pragma warning restore SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+
+        using JsonDocument json = JsonDocument.Parse(ModelReaderWriter.Write(tool));
+        JsonElement allowedTools = json.RootElement.GetProperty("allowed_tools");
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(allowedTools.GetProperty("tool_names").GetArrayLength(), Is.Zero);
+            Assert.That(allowedTools.GetProperty("additional_property").GetString(), Is.EqualTo("patched"));
+        }
+    }
+
+    [TestCase("null", false)]
+    [TestCase("42", true)]
+    [TestCase("true", true)]
+    [TestCase("[42]", true)]
+    [TestCase("[{}]", true)]
+    [TestCase("[true]", true)]
+    public void DeserializeMCPAllowedToolsHandlesNullAndRejectsUnsupportedJsonShapes(string allowedTools, bool shouldThrow)
+    {
+        BinaryData data = BinaryData.FromString($$"""{"type":"mcp","server_label":"test","allowed_tools":{{allowedTools}}}""");
+
+        if (shouldThrow)
+        {
+            Assert.Throws<InvalidOperationException>(() => ModelReaderWriter.Read<McpTool>(data));
+        }
+        else
+        {
+            McpTool tool = ModelReaderWriter.Read<McpTool>(data);
+            Assert.That(tool.AllowedTools, Is.Null);
+        }
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void DeserializeCustomToolCallOutput(bool useShorthandInput)
+    {
+        BinaryData data = BinaryData.FromString(useShorthandInput
+            ? """{"type":"custom_tool_call_output","call_id":"call_123","output":"hello world"}"""
+            : """{"type":"custom_tool_call_output","call_id":"call_123","output":[{"type":"input_text","text":"hello world"}]}""");
+
+        CustomToolCallOutputItem item = ModelReaderWriter.Read<CustomToolCallOutputItem>(data);
+
+        Assert.That(item.Output, Has.Count.EqualTo(1));
+        Assert.That(item.Output[0].Text, Is.EqualTo("hello world"));
+        using JsonDocument json = JsonDocument.Parse(ModelReaderWriter.Write(item));
+        Assert.That(json.RootElement.GetProperty("output").ValueKind, Is.EqualTo(JsonValueKind.Array));
+    }
+
+    [Test]
+    public void DeserializeCustomToolCallOutputPreservesLonghandFields()
+    {
+        CustomToolCallOutputItem item = ModelReaderWriter.Read<CustomToolCallOutputItem>(BinaryData.FromString(
+            """{"type":"custom_tool_call_output","call_id":"call_123","output":[{"type":"input_image","file_id":"file_123","detail":"high"}]}"""));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(item.Output[0].InputImageFileId, Is.EqualTo("file_123"));
+            Assert.That(item.Output[0].InputImageDetailLevel, Is.EqualTo(ResponseImageDetailLevel.High));
+        }
+
+        using JsonDocument json = JsonDocument.Parse(ModelReaderWriter.Write(item));
+        JsonElement output = json.RootElement.GetProperty("output")[0];
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(output.GetProperty("file_id").GetString(), Is.EqualTo("file_123"));
+            Assert.That(output.GetProperty("detail").GetString(), Is.EqualTo("high"));
+        }
+    }
+
+    [TestCase("null")]
+    [TestCase("{}")]
+    [TestCase("42")]
+    [TestCase("true")]
+    public void DeserializeCustomToolCallOutputRejectsUnsupportedJsonShapes(string output)
+    {
+        BinaryData data = BinaryData.FromString($$"""{"type":"custom_tool_call_output","call_id":"call_123","output":{{output}}}""");
+
+        Assert.Throws<InvalidOperationException>(() => ModelReaderWriter.Read<CustomToolCallOutputItem>(data));
+    }
+
+    [Test]
     [TestCase(true)]
     [TestCase(false)]
     public void SerializeCodeInterpreterToolContainerAsString(bool fromRawJson)
@@ -510,14 +922,51 @@ public partial class ResponsesSmokeTests
         else
         {
             // We construct a new instance. Later, we serialize it and confirm it was constructed correctly.
-            container = new CodeInterpreterToolContainer(containerId);
+            container = containerId;
         }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(container.ContainerId, Is.EqualTo(containerId));
+            Assert.That(container.ContainerConfiguration, Is.Null);
+        });
 
         BinaryData serializedContainer = ModelReaderWriter.Write(container);
         using JsonDocument containerAsJson = JsonDocument.Parse(serializedContainer);
         Assert.That(containerAsJson.RootElement, Is.Not.Null);
         Assert.That(containerAsJson.RootElement.ValueKind, Is.EqualTo(JsonValueKind.String));
         Assert.That(containerAsJson.RootElement.ToString(), Is.EqualTo(containerId));
+    }
+
+    [Test]
+    public void CodeInterpreterToolContainerRejectsNullComponents()
+    {
+        Assert.Throws<ArgumentNullException>(() => new CodeInterpreterToolContainer((string)null));
+        Assert.Throws<ArgumentNullException>(() => new CodeInterpreterToolContainer((CodeInterpreterToolContainerConfiguration)null));
+    }
+
+    [Test]
+    public void CodeInterpreterToolContainerImplicitConversionsPreserveNull()
+    {
+        string containerId = null;
+        CodeInterpreterToolContainerConfiguration containerConfiguration = null;
+
+        CodeInterpreterToolContainer containerFromId = containerId;
+        CodeInterpreterToolContainer containerFromConfiguration = containerConfiguration;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(containerFromId, Is.Null);
+            Assert.That(containerFromConfiguration, Is.Null);
+        });
+    }
+
+    [Test]
+    public void DeserializeNullCodeInterpreterToolContainer()
+    {
+        CodeInterpreterToolContainer container = ModelReaderWriter.Read<CodeInterpreterToolContainer>(BinaryData.FromString("null"));
+
+        Assert.That(container, Is.Null);
     }
 
     [Test]
@@ -550,8 +999,14 @@ public partial class ResponsesSmokeTests
                 FileIds = { fileId }
             };
 
-            container = new CodeInterpreterToolContainer(autoConfig);
+            container = autoConfig;
         }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(container.ContainerId, Is.Null);
+            Assert.That(container.ContainerConfiguration, Is.Not.Null);
+        });
 
         BinaryData serializedContainer = ModelReaderWriter.Write(container);
         using JsonDocument containerAsJson = JsonDocument.Parse(serializedContainer);
@@ -577,6 +1032,51 @@ public partial class ResponsesSmokeTests
             Assert.That(additionalPropertyProperty, Is.Not.Null);
             Assert.That(additionalPropertyProperty.ValueKind, Is.EqualTo(JsonValueKind.True));
         }
+    }
+
+    [Test]
+    public void CodeInterpreterToolContainerPropagatesJsonPatchToObjectComponent()
+    {
+        ResponseTool tool = ResponseTool.CreateCodeInterpreterTool(
+            new CodeInterpreterToolContainer(new AutomaticCodeInterpreterToolContainerConfiguration()));
+
+#pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+        tool.Patch.Set("$.container.additional_property"u8, "patched");
+#pragma warning restore SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+
+        using JsonDocument json = JsonDocument.Parse(ModelReaderWriter.Write(tool));
+        Assert.That(json.RootElement.GetProperty("container").GetProperty("additional_property").GetString(), Is.EqualTo("patched"));
+    }
+
+    [Test]
+    public void CodeInterpreterToolContainerSupportsRootJsonPatchFromContainingModel()
+    {
+        BinaryData data = BinaryData.FromString("""
+        {
+            "type": "code_interpreter",
+            "container": {
+                "type": "auto"
+            }
+        }
+        """);
+        CodeInterpreterTool tool = ModelReaderWriter.Read<CodeInterpreterTool>(data);
+
+#pragma warning disable SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+        tool.Patch.Set("$.container"u8, "\"container_123\""u8);
+#pragma warning restore SCME0001 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+
+        using JsonDocument json = JsonDocument.Parse(ModelReaderWriter.Write(tool));
+        Assert.That(json.RootElement.GetProperty("container").GetString(), Is.EqualTo("container_123"));
+    }
+
+    [TestCase("[]")]
+    [TestCase("42")]
+    [TestCase("true")]
+    public void DeserializeCodeInterpreterToolContainerRejectsUnsupportedJsonShapes(string json)
+    {
+        BinaryData data = BinaryData.FromString(json);
+
+        Assert.Throws<JsonException>(() => ModelReaderWriter.Read<CodeInterpreterToolContainer>(data));
     }
 
     [Test]
@@ -609,10 +1109,4 @@ public partial class ResponsesSmokeTests
         Assert.That(customProperty.ToString(), Is.EqualTo("custom_property"));
     }
 
-    [Test]
-    public void ValidateCreateResponseOptionsClone()
-    {
-        var original = new CreateResponseOptions();
-        CloneTestHelper.ValidateCloneMethod(original);
-    }
 }

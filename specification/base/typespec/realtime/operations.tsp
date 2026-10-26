@@ -1,19 +1,13 @@
-import "../common";
-import "./models.tsp";
+import "@typespec/http";
+import "./models_GA.tsp";
 
 using TypeSpec.Http;
-using TypeSpec.OpenAPI;
 
 namespace OpenAI;
 
 @route("realtime")
 @tag("Realtime")
 interface Realtime {
-  @summary("Starts a real-time session for conversation or transcription.")
-  startRealtimeSession(
-    @body requestMessages: RealtimeClientEvent[],
-  ): RealtimeServerEvent[];
-
   /** Create a Realtime client secret with an associated session configuration. */
   #suppress "@azure-tools/typespec-azure-core/casing-style" "Auto-suppressed warnings non-applicable rules during import."
   #suppress "@azure-tools/typespec-azure-core/response-schema-problem" "Auto-suppressed warnings non-applicable rules during import."
@@ -23,18 +17,18 @@ interface Realtime {
   @post
   @route("/client_secrets")
   @tag("Realtime")
-  `create-realtime-client-secret`(
+  createRealtimeClientSecret(
     /** Create a client secret with the given session configuration. */
     @body
-    body: RealtimeCreateClientSecretRequest,
-  ): RealtimeCreateClientSecretResponse | {
+    options: RealtimeCreateClientSecretRequest_GA,
+  ): RealtimeCreateClientSecretResponse_GA | {
     @maxValue(499)
     @minValue(400)
     @statusCode
     statusCode: int32;
 
     @body
-    body: Error;
+    body: RealtimeErrorResponse_GA;
   } | {
     @maxValue(599)
     @minValue(500)
@@ -42,6 +36,6 @@ interface Realtime {
     statusCode: int32;
 
     @body
-    body: Error;
+    body: RealtimeErrorResponse_GA;
   };
 }

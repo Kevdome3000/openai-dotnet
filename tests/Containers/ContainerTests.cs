@@ -4,6 +4,7 @@ using OpenAI.Containers;
 using OpenAI.Tests.Utility;
 using System;
 using System.ClientModel;
+using System.ClientModel.Primitives;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +15,7 @@ namespace OpenAI.Tests.Containers;
 public class ContainerTests : OpenAIRecordedTestBase
 {
     private static string _testContainerId;
+
     public ContainerTests(bool isAsync) : base(isAsync)
     {
     }
@@ -29,8 +31,9 @@ public class ContainerTests : OpenAIRecordedTestBase
 
         ContainerClient client = TestEnvironment.GetTestClient<ContainerClient>();
 
-        // Create a test container that will be used by all tests
-        ContainerResource result = await client.CreateContainerAsync(new CreateContainerBody($"test-container-{Guid.NewGuid():N}"));
+        ContainerCreationOptions options = new ($"test-container-{Guid.NewGuid():N}");
+
+        ContainerResource result = await client.CreateContainerAsync(options);
         _testContainerId = result.Id;
 
         Console.WriteLine($"Created test container: {_testContainerId}");
@@ -51,37 +54,32 @@ public class ContainerTests : OpenAIRecordedTestBase
     }
 
     [OneTimeTearDown]
-    public async Task TearDown()
+    public async Task OneTimeTearDown()
     {
-        // Skip teardown if there is no API key or no container was created
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_API_KEY")) || string.IsNullOrEmpty(_testContainerId))
+        // Skip resource cleanup in Playback mode; no live resources were created.
+        if (Mode == RecordedTestMode.Playback)
         {
             return;
         }
 
-        ContainerClient client = GetProxiedOpenAIClient<ContainerClient>();
+        if (!string.IsNullOrEmpty(_testContainerId))
+        {
+            ContainerClient client = GetProxiedOpenAIClient<ContainerClient>();
 
-        try
-        {
-            await client.DeleteContainerAsync(_testContainerId);
-            Console.WriteLine($"Deleted test container: {_testContainerId}");
+            try
+            {
+                await client.DeleteContainerAsync(_testContainerId);
+                Console.WriteLine($"Deleted test container: {_testContainerId}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to delete test container {_testContainerId}: {ex.Message}");
+            }
+            finally
+            {
+                _testContainerId = null;
+            }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to delete test container {_testContainerId}: {ex.Message}");
-        }
-        finally
-        {
-            _testContainerId = null;
-        }
-    }
-
-    private static CreateContainerBody CreateContainerBodyFromName(string name)
-    {
-        // Use reflection to create the CreateContainerBody since it only has internal constructors
-        var createBodyType = typeof(CreateContainerBody);
-        var constructor = createBodyType.GetConstructors(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)[0];
-        return (CreateContainerBody)constructor.Invoke(new object[] { name });
     }
 
     [RecordedTest]
@@ -142,18 +140,18 @@ public class ContainerTests : OpenAIRecordedTestBase
         }
 
         // Test GetContainerFilesAsync method
-        ContainerFileCollectionOptions options = new()
+        ContainerFileCollectionOptions options = new(_testContainerId)
         {
-            Order = ContainerCollectionOrder.Descending,
+            Order = ContainerFileCollectionOrder.Descending,
             PageSizeLimit = 10
         };
 
         int count = 0;
 
-        AsyncCollectionResult<ContainerFileResource> files = client.GetContainerFilesAsync(_testContainerId, options);
+        AsyncCollectionResult<ContainerFileResource> files = client.GetContainerFilesAsync(options);
         await foreach (ContainerFileResource file in files)
         {
-            Console.WriteLine($"[{count,3}] {file.Id} {file.CreatedAt:s} {file.Path} ({file.Bytes} bytes)");
+            Console.WriteLine($"[{count,3}] {file.Id} {file.CreatedAt:s} {file.Path} ({file.SizeInBytes} bytes)");
             Validate(file);
             Assert.That(file.ContainerId, Is.EqualTo(_testContainerId), "File should belong to the correct container");
             count++;
@@ -223,10 +221,10 @@ public class ContainerTests : OpenAIRecordedTestBase
         // Test with default options (null)
         int count = 0;
 
-        AsyncCollectionResult<ContainerFileResource> files = client.GetContainerFilesAsync(_testContainerId);
+        AsyncCollectionResult<ContainerFileResource> files = client.GetContainerFilesAsync(new ContainerFileCollectionOptions(_testContainerId));
         await foreach (ContainerFileResource file in files)
         {
-            Console.WriteLine($"[{count,3}] {file.Id} {file.CreatedAt:s} {file.Path} ({file.Bytes} bytes)");
+            Console.WriteLine($"[{count,3}] {file.Id} {file.CreatedAt:s} {file.Path} ({file.SizeInBytes} bytes)");
             Validate(file);
             Assert.That(file.ContainerId, Is.EqualTo(_testContainerId));
             count++;
@@ -300,7 +298,7 @@ public class ContainerTests : OpenAIRecordedTestBase
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(30));
 
-        ContainerFileCollectionOptions options = new()
+        ContainerFileCollectionOptions options = new(_testContainerId)
         {
             PageSizeLimit = 5
         };
@@ -309,7 +307,7 @@ public class ContainerTests : OpenAIRecordedTestBase
 
         try
         {
-            AsyncCollectionResult<ContainerFileResource> files = client.GetContainerFilesAsync(_testContainerId, options, cancellationTokenSource.Token);
+            AsyncCollectionResult<ContainerFileResource> files = client.GetContainerFilesAsync(options, cancellationTokenSource.Token);
             await foreach (ContainerFileResource file in files.WithCancellation(cancellationTokenSource.Token))
             {
                 Validate(file);
@@ -394,15 +392,15 @@ public class ContainerTests : OpenAIRecordedTestBase
         }
 
         // Test different ordering options for files
-        var ascendingOptions = new ContainerFileCollectionOptions()
+        var ascendingOptions = new ContainerFileCollectionOptions(_testContainerId)
         {
-            Order = ContainerCollectionOrder.Ascending,
+            Order = ContainerFileCollectionOrder.Ascending,
             PageSizeLimit = 5
         };
 
-        var descendingOptions = new ContainerFileCollectionOptions()
+        var descendingOptions = new ContainerFileCollectionOptions(_testContainerId)
         {
-            Order = ContainerCollectionOrder.Descending,
+            Order = ContainerFileCollectionOrder.Descending,
             PageSizeLimit = 5
         };
 
@@ -410,7 +408,7 @@ public class ContainerTests : OpenAIRecordedTestBase
         int descendingCount = 0;
 
         // Test ascending order
-        AsyncCollectionResult<ContainerFileResource> ascendingFiles = client.GetContainerFilesAsync(_testContainerId, ascendingOptions);
+        AsyncCollectionResult<ContainerFileResource> ascendingFiles = client.GetContainerFilesAsync(ascendingOptions);
         await foreach (ContainerFileResource file in ascendingFiles)
         {
             Validate(file);
@@ -420,7 +418,7 @@ public class ContainerTests : OpenAIRecordedTestBase
         }
 
         // Test descending order
-        AsyncCollectionResult<ContainerFileResource> descendingFiles = client.GetContainerFilesAsync(_testContainerId, descendingOptions);
+        AsyncCollectionResult<ContainerFileResource> descendingFiles = client.GetContainerFilesAsync(descendingOptions);
         await foreach (ContainerFileResource file in descendingFiles)
         {
             Validate(file);
@@ -455,6 +453,53 @@ public class ContainerTests : OpenAIRecordedTestBase
     }
 
     [RecordedTest]
+    public async Task CanCreateContainer()
+    {
+        TimeSpan expectedContainerDuration = TimeSpan.FromMinutes(20);
+        ContainerMemoryLimit expectedContainerMemoryLimit = ContainerMemoryLimit.Max4GB;
+        string createdContainerId = null;
+
+        ContainerClient client = GetProxiedOpenAIClient<ContainerClient>();
+
+        ContainerCreationOptions options = new($"test-container")
+        {
+            ExpirationPolicy = new ContainerExpirationPolicy
+            {
+                Anchor = ContainerExpirationPolicyAnchor.LastActiveAt,
+                Duration = expectedContainerDuration,
+            },
+            MemoryLimit = expectedContainerMemoryLimit,
+            NetworkPolicy = new ContainerDisabledNetworkPolicy(),
+        };
+
+        try
+        {
+            ContainerResource container = await client.CreateContainerAsync(options);
+            createdContainerId = container.Id;
+
+            Assert.That(container, Is.Not.Null);
+            Validate(container);
+
+            Assert.That(container.Name, Is.EqualTo("test-container"));
+            Assert.That(container.ExpirationPolicy, Is.Not.Null);
+            Assert.That(container.ExpirationPolicy.Anchor, Is.EqualTo(ContainerExpirationPolicyAnchor.LastActiveAt));
+            Assert.That(container.ExpirationPolicy.Duration, Is.EqualTo(expectedContainerDuration));
+            Assert.That(container.MemoryLimit, Is.EqualTo(expectedContainerMemoryLimit));
+            Assert.That(container.NetworkPolicy, Is.InstanceOf<ContainerDisabledNetworkPolicy>());
+
+            ContainerDisabledNetworkPolicy networkPolicy = (ContainerDisabledNetworkPolicy)container.NetworkPolicy;
+            Assert.That(networkPolicy.Kind, Is.EqualTo(ContainerNetworkPolicyKind.Disabled));
+        }
+        finally
+        {
+            if (!string.IsNullOrEmpty(createdContainerId))
+            {
+                await client.DeleteContainerAsync(createdContainerId);
+            }
+        }
+    }
+
+    [RecordedTest]
     public async Task CanGetContainerWithCancellation()
     {
         ContainerClient client = GetProxiedOpenAIClient<ContainerClient>();
@@ -477,7 +522,7 @@ public class ContainerTests : OpenAIRecordedTestBase
     }
 
     [RecordedTest]
-    public async Task CanCreateAndDeleteContainerFile()
+    public async Task CanUploadAndDeleteContainerFile()
     {
         using (Recording.DisableRequestBodyRecording()) // Temp pending https://github.com/Azure/azure-sdk-tools/issues/11901
         {
@@ -489,7 +534,7 @@ public class ContainerTests : OpenAIRecordedTestBase
                 return;
             }
 
-            // Create a test file using multipart form data
+            // Upload a test file using multipart form data
             string testContent = "This is a test file content for container testing.";
             byte[] contentBytes = System.Text.Encoding.UTF8.GetBytes(testContent);
 
@@ -497,30 +542,30 @@ public class ContainerTests : OpenAIRecordedTestBase
             var formData = new MultiPartFormDataBinaryContent();
             formData.Add(contentBytes, "file", "test-file.txt", "text/plain");
 
-            ClientResult createResult = await client.CreateContainerFileAsync(_testContainerId, formData, formData.ContentType);
+            ClientResult uploadResult = await client.UploadContainerFileAsync(_testContainerId, formData, formData.ContentType);
 
-            Assert.That(createResult, Is.Not.Null);
-            Assert.That(createResult.GetRawResponse().IsError, Is.False, "File creation should succeed");
+            Assert.That(uploadResult, Is.Not.Null);
+            Assert.That(uploadResult.GetRawResponse().IsError, Is.False, "File upload should succeed");
 
             // Extract the file ID from the response (this might need adjustment based on the actual response format)
-            string responseContent = createResult.GetRawResponse().Content.ToString();
-            Console.WriteLine($"Create file response: {responseContent}");
+            string responseContent = uploadResult.GetRawResponse().Content.ToString();
+            Console.WriteLine($"Upload file response: {responseContent}");
 
             // Parse the response to get the file ID
             var responseJson = JsonDocument.Parse(responseContent);
             string fileId = responseJson.RootElement.GetProperty("id").GetString();
-            Assert.That(fileId, Is.Not.Null.And.Not.Empty, "File ID should be returned from creation");
+            Assert.That(fileId, Is.Not.Null.And.Not.Empty, "File ID should be returned from upload");
 
-            Console.WriteLine($"Created file with ID: {fileId}");
+            Console.WriteLine($"Uploaded file with ID: {fileId}");
 
             try
             {
                 // Now delete the file
-                ClientResult<DeleteContainerFileResponse> deleteResult = await client.DeleteContainerFileAsync(_testContainerId, fileId);
+                ClientResult<ContainerFileDeletionResult> deleteResult = await client.DeleteContainerFileAsync(_testContainerId, fileId);
 
                 Assert.That(deleteResult, Is.Not.Null);
                 Assert.That(deleteResult.Value, Is.Not.Null);
-                Assert.That(deleteResult.Value.Id, Is.EqualTo(fileId), "Deleted file ID should match");
+                Assert.That(deleteResult.Value.ContainerFileId, Is.EqualTo(fileId), "Deleted file ID should match");
                 Assert.That(deleteResult.Value.Object, Is.Not.Null.And.Not.Empty);
                 Assert.That(deleteResult.Value.Deleted, Is.True, "File should be marked as deleted");
 
@@ -535,7 +580,7 @@ public class ContainerTests : OpenAIRecordedTestBase
     }
 
     [RecordedTest]
-    public async Task CanCreateGetAndDeleteContainerFile()
+    public async Task CanUploadGetAndDeleteContainerFile()
     {
         using (Recording.DisableRequestBodyRecording()) // Temp pending https://github.com/Azure/azure-sdk-tools/issues/11901
         {
@@ -547,16 +592,16 @@ public class ContainerTests : OpenAIRecordedTestBase
                 return;
             }
 
-            // Create a test file using multipart form data
+            // Upload a test file using multipart form data
             string testContent = "Test file content for get/delete operations.";
             byte[] contentBytes = System.Text.Encoding.UTF8.GetBytes(testContent);
 
             var formData = new MultiPartFormDataBinaryContent();
             formData.Add(contentBytes, "file", "test-get-file.txt", "text/plain");
 
-            ClientResult createResult = await client.CreateContainerFileAsync(_testContainerId, formData, formData.ContentType);
+            ClientResult uploadResult = await client.UploadContainerFileAsync(_testContainerId, formData, formData.ContentType);
 
-            string responseContent = createResult.GetRawResponse().Content.ToString();
+            string responseContent = uploadResult.GetRawResponse().Content.ToString();
             var responseJson = JsonDocument.Parse(responseContent);
             string fileId = responseJson.RootElement.GetProperty("id").GetString();
 
@@ -569,9 +614,9 @@ public class ContainerTests : OpenAIRecordedTestBase
                 Validate(fileResource);
                 Assert.That(fileResource.Id, Is.EqualTo(fileId));
                 Assert.That(fileResource.ContainerId, Is.EqualTo(_testContainerId));
-                Assert.That(fileResource.Bytes, Is.GreaterThan(0), "File size should be greater than 0");
+                Assert.That(fileResource.SizeInBytes, Is.GreaterThan(0), "File size should be greater than 0");
 
-                Console.WriteLine($"Retrieved file metadata: {fileResource.Id}, {fileResource.Bytes} bytes");
+                Console.WriteLine($"Retrieved file metadata: {fileResource.Id}, {fileResource.SizeInBytes} bytes");
 
                 // Get the file content
                 ClientResult<BinaryData> contentResult = await client.DownloadContainerFileAsync(_testContainerId, fileId);
@@ -611,16 +656,16 @@ public class ContainerTests : OpenAIRecordedTestBase
                 return;
             }
 
-            // Create a test file first using multipart form data
+            // Upload a test file first using multipart form data
             string testContent = "Test content for cancellation test.";
             byte[] contentBytes = System.Text.Encoding.UTF8.GetBytes(testContent);
 
             var formData = new MultiPartFormDataBinaryContent();
             formData.Add(contentBytes, "file", "test-cancel-file.txt", "text/plain");
 
-            ClientResult createResult = await client.CreateContainerFileAsync(_testContainerId, formData, formData.ContentType);
+            ClientResult uploadResult = await client.UploadContainerFileAsync(_testContainerId, formData, formData.ContentType);
 
-            string responseContent = createResult.GetRawResponse().Content.ToString();
+            string responseContent = uploadResult.GetRawResponse().Content.ToString();
             var responseJson = JsonDocument.Parse(responseContent);
             string fileId = responseJson.RootElement.GetProperty("id").GetString();
 
@@ -671,16 +716,16 @@ public class ContainerTests : OpenAIRecordedTestBase
                 return;
             }
 
-            // Create a test file first using multipart form data
+            // Upload a test file first using multipart form data
             string testContent = "Test content for deletion with cancellation.";
             byte[] contentBytes = System.Text.Encoding.UTF8.GetBytes(testContent);
 
             var formData = new MultiPartFormDataBinaryContent();
             formData.Add(contentBytes, "file", "test-delete-cancel-file.txt", "text/plain");
 
-            ClientResult createResult = await client.CreateContainerFileAsync(_testContainerId, formData, formData.ContentType);
+            ClientResult uploadResult = await client.UploadContainerFileAsync(_testContainerId, formData, formData.ContentType);
 
-            string responseContent = createResult.GetRawResponse().Content.ToString();
+            string responseContent = uploadResult.GetRawResponse().Content.ToString();
             var responseJson = JsonDocument.Parse(responseContent);
             string fileId = responseJson.RootElement.GetProperty("id").GetString();
 
@@ -688,11 +733,11 @@ public class ContainerTests : OpenAIRecordedTestBase
             cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(30));
 
             // Delete the file with cancellation token
-            ClientResult<DeleteContainerFileResponse> deleteResult = await client.DeleteContainerFileAsync(_testContainerId, fileId, cancellationTokenSource.Token);
+            ClientResult<ContainerFileDeletionResult> deleteResult = await client.DeleteContainerFileAsync(_testContainerId, fileId, cancellationTokenSource.Token);
 
             Assert.That(deleteResult, Is.Not.Null);
             Assert.That(deleteResult.Value, Is.Not.Null);
-            Assert.That(deleteResult.Value.Id, Is.EqualTo(fileId));
+            Assert.That(deleteResult.Value.ContainerFileId, Is.EqualTo(fileId));
             Assert.That(deleteResult.Value.Deleted, Is.True);
 
             Console.WriteLine($"Successfully deleted file with cancellation token: {fileId}");
@@ -700,7 +745,7 @@ public class ContainerTests : OpenAIRecordedTestBase
     }
 
     [RecordedTest]
-    public void CreateContainerFileValidatesParameters()
+    public void UploadContainerFileValidatesParameters()
     {
         ContainerClient client = GetProxiedOpenAIClient<ContainerClient>();
 
@@ -712,16 +757,16 @@ public class ContainerTests : OpenAIRecordedTestBase
 
         // Test null content
         Assert.ThrowsAsync<ArgumentNullException>(async () =>
-            await client.CreateContainerFileAsync(_testContainerId, null, "multipart/form-data"));
+            await client.UploadContainerFileAsync(_testContainerId, null, "multipart/form-data"));
 
         // Test null/empty container ID
         var testFormData = new MultiPartFormDataBinaryContent();
         testFormData.Add("test", "file", "test.txt", "text/plain");
 
         Assert.ThrowsAsync<ArgumentNullException>(async () =>
-            await client.CreateContainerFileAsync(null, testFormData, testFormData.ContentType));
+            await client.UploadContainerFileAsync(null, testFormData, testFormData.ContentType));
         Assert.ThrowsAsync<ArgumentException>(async () =>
-            await client.CreateContainerFileAsync("", testFormData, testFormData.ContentType));
+            await client.UploadContainerFileAsync("", testFormData, testFormData.ContentType));
 
         Console.WriteLine("Parameter validation tests passed");
     }
@@ -802,7 +847,7 @@ public class ContainerTests : OpenAIRecordedTestBase
         Assert.That(file.Object, Is.Not.Null.And.Not.Empty);
         Assert.That(file.ContainerId, Is.Not.Null.And.Not.Empty);
         Assert.That(file.CreatedAt, Is.GreaterThan(DateTimeOffset.MinValue));
-        Assert.That(file.Bytes, Is.GreaterThanOrEqualTo(0));
+        Assert.That(file.SizeInBytes, Is.GreaterThanOrEqualTo(0));
         Assert.That(file.Path, Is.Not.Null);
         Assert.That(file.Source, Is.Not.Null);
     }

@@ -1,12 +1,3 @@
-/*
- * This file was automatically generated from an OpenAPI .yaml file.
- * Edits made directly to this file will be lost.
- */
-
-import "./custom.tsp";
-
-using Http;
-using TypeSpec.OpenAPI;
 
 namespace OpenAI;
 

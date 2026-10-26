@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace OpenAI.Tests.Responses;
@@ -26,25 +27,346 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     }
 
     [RecordedTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task FunctionToolWorks(bool isStateless)
+    {
+        ResponsesClient client = GetProxiedResponsesClient();
+
+        List<ResponseItem> inputItems = [ResponseItem.CreateUserMessageItem("What should I wear for the weather in San Francisco, CA?")];
+
+        CreateResponseOptions options = new(TestModel.Responses, inputItems)
+        {
+            Tools = { s_GetWeatherAtLocationTool },
+            ToolChoice = ResponseToolChoice.CreateFunctionChoice(s_GetWeatherAtLocationToolName),
+            StoredOutputEnabled = !isStateless
+        };
+
+        // First turn.
+        ResponseResult response1 = await client.CreateResponseAsync(options);
+        Assert.That(response1, Is.Not.Null);
+        Assert.That(response1.Id, Is.Not.Null.And.Not.Empty);
+        Assert.That(response1.Tools.Count, Is.EqualTo(1));
+        Assert.That(response1.Tools[0], Is.InstanceOf<FunctionTool>());
+        Assert.That(response1.OutputItems, Has.Count.EqualTo(1));
+        Assert.That(response1.OutputItems[0], Is.InstanceOf<FunctionCallResponseItem>());
+
+        FunctionTool responseTool = response1.Tools[0] as FunctionTool;
+        Assert.That(responseTool, Is.Not.Null);
+        Assert.That(responseTool.FunctionName, Is.EqualTo(s_GetWeatherAtLocationTool.FunctionName));
+        Assert.That(responseTool.FunctionDescription, Is.EqualTo(s_GetWeatherAtLocationTool.FunctionDescription));
+
+        FunctionCallResponseItem functionCall = response1.OutputItems[0] as FunctionCallResponseItem;
+        Assert.That(functionCall, Is.Not.Null);
+        Assert.That(functionCall.Id, Is.Not.Null.And.Not.Empty);
+        Assert.That(functionCall.Status, Is.EqualTo(FunctionCallStatus.Completed));
+        Assert.That(functionCall.CallId, Is.Not.Null.And.Not.Empty);
+        Assert.That(functionCall.FunctionName, Is.EqualTo(s_GetWeatherAtLocationToolName));
+        Assert.That(functionCall.FunctionArguments, Is.Not.Null);
+        Assert.That(() =>
+        {
+            using JsonDocument document = JsonDocument.Parse(functionCall.FunctionArguments);
+            Assert.That(document.RootElement.GetProperty("location").GetString(), Is.Not.Null.And.Not.Empty);
+            Assert.That(document.RootElement.GetProperty("unit").GetString(), Is.AnyOf("C", "F", "K"));
+        }, Throws.Nothing);
+
+        ResponseItem functionCallOutput = ResponseItem.CreateFunctionCallOutputItem(functionCall.CallId, "22 degrees Celsius and windy");
+
+        if (isStateless)
+        {
+            foreach (ResponseItem outputItem in response1.OutputItems)
+            {
+                options.InputItems.Add(outputItem);
+            }
+            Assert.That(options.InputItems.Count, Is.EqualTo(2));
+        }
+        else
+        {
+            options.PreviousResponseId = response1.Id;
+            options.InputItems.Clear();
+            Assert.That(options.InputItems.Count, Is.EqualTo(0));
+        }
+
+        options.ToolChoice = ResponseToolChoice.CreateAutoChoice();
+        options.InputItems.Add(functionCallOutput);
+
+        // Second turn.
+        ResponseResult response2 = await client.CreateResponseAsync(options);
+        Assert.That(response2, Is.Not.Null);
+        Assert.That(response2.OutputItems, Has.Count.EqualTo(1));
+        Assert.That(response2.OutputItems[0], Is.InstanceOf<MessageResponseItem>());
+        Assert.That(response2.GetOutputText(), Is.Not.Null.And.Not.Empty);
+        Assert.That(response2.GetOutputText(), Does.Contain("22"));
+    }
+
+    [RecordedTest]
+    public async Task FunctionToolStreamingWorks()
+    {
+        ResponsesClient client = GetProxiedResponsesClient();
+
+        List<ResponseItem> inputItems = [ResponseItem.CreateUserMessageItem("What should I wear for the weather in San Francisco, CA?")];
+
+        CreateResponseOptions options = new(TestModel.Responses, inputItems)
+        {
+            Tools = { s_GetWeatherAtLocationTool },
+            ToolChoice = ResponseToolChoice.CreateFunctionChoice(s_GetWeatherAtLocationToolName),
+            StreamingEnabled = true,
+        };
+
+        StringBuilder argumentsBuilder = new();
+        int argumentsDeltaCount = 0;
+        int argumentsDoneCount = 0;
+        string toolCallItemId = null;
+        FunctionCallResponseItem completedFunctionToolCall = null;
+
+        await foreach (StreamingResponseUpdate update in client.CreateResponseStreamingAsync(options))
+        {
+            if (update is StreamingResponseFunctionCallArgumentsDeltaUpdate argumentsDeltaUpdate)
+            {
+                Assert.That(argumentsDeltaUpdate.Delta, Is.Not.Null);
+                Assert.That(argumentsDeltaUpdate.ItemId, Is.Not.Null.And.Not.Empty);
+                Assert.That(argumentsDeltaUpdate.OutputIndex, Is.GreaterThanOrEqualTo(0));
+                toolCallItemId ??= argumentsDeltaUpdate.ItemId;
+                Assert.That(argumentsDeltaUpdate.ItemId, Is.EqualTo(toolCallItemId));
+                argumentsBuilder.Append(argumentsDeltaUpdate.Delta);
+                argumentsDeltaCount++;
+            }
+            else if (update is StreamingResponseFunctionCallArgumentsDoneUpdate argumentsDoneUpdate)
+            {
+                Assert.That(argumentsDoneUpdate.ItemId, Is.EqualTo(toolCallItemId));
+                Assert.That(argumentsDoneUpdate.OutputIndex, Is.GreaterThanOrEqualTo(0));
+                Assert.That(argumentsDoneUpdate.FunctionArguments.ToString(), Is.EqualTo(argumentsBuilder.ToString()));
+                Assert.DoesNotThrow(() =>
+                {
+                    using JsonDocument document = JsonDocument.Parse(argumentsDoneUpdate.FunctionArguments);
+                    Assert.That(document.RootElement.GetProperty("location").GetString(), Is.Not.Null.And.Not.Empty);
+                    Assert.That(document.RootElement.GetProperty("unit").GetString(), Is.AnyOf("C", "F", "K"));
+                });
+                argumentsDoneCount++;
+            }
+            else if (update is StreamingResponseOutputItemDoneUpdate outputItemDoneUpdate
+                && outputItemDoneUpdate.Item is FunctionCallResponseItem functionToolCall)
+            {
+                completedFunctionToolCall = functionToolCall;
+            }
+        }
+
+        Assert.That(argumentsDeltaCount, Is.GreaterThan(0));
+        Assert.That(argumentsDoneCount, Is.EqualTo(1));
+        Assert.That(completedFunctionToolCall, Is.Not.Null);
+        Assert.That(completedFunctionToolCall.Id, Is.EqualTo(toolCallItemId));
+        Assert.That(completedFunctionToolCall.Status, Is.EqualTo(FunctionCallStatus.Completed));
+        Assert.That(completedFunctionToolCall.FunctionName, Is.EqualTo(s_GetWeatherAtLocationToolName));
+        Assert.That(completedFunctionToolCall.FunctionArguments.ToString(), Is.EqualTo(argumentsBuilder.ToString()));
+    }
+
+    [RecordedTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task CustomToolWorks(bool isStateless)
+    {
+        const string toolName = "code_exec";
+
+        ResponsesClient client = GetProxiedResponsesClient();
+
+        List<ResponseItem> inputItems = [ResponseItem.CreateUserMessageItem("Use the code_exec tool to print hello world to the console.")];
+
+        CustomTool customTool = new(toolName)
+        {
+            ToolDescription = "Executes arbitrary Python code.",
+            ToolFormat = new CustomToolTextFormat(),
+        };
+
+        CreateResponseOptions options = new("gpt-5.6", inputItems)
+        {
+            Tools = { customTool },
+            ToolChoice = ResponseToolChoice.CreateRequiredChoice(),
+            StoredOutputEnabled = !isStateless,
+        };
+
+        // First turn.
+        ResponseResult response1 = await client.CreateResponseAsync(options);
+        Assert.That(response1, Is.Not.Null);
+        Assert.That(response1.Id, Is.Not.Null.And.Not.Empty);
+        Assert.That(response1.Tools.Count, Is.EqualTo(1));
+        Assert.That(response1.Tools[0], Is.InstanceOf<CustomTool>());
+        Assert.That(response1.OutputItems, Has.Count.EqualTo(1));
+        Assert.That(response1.OutputItems[0], Is.InstanceOf<CustomToolCallItem>());
+
+        CustomTool responseTool = response1.Tools[0] as CustomTool;
+        Assert.That(responseTool, Is.Not.Null);
+        Assert.That(responseTool.ToolName, Is.EqualTo(customTool.ToolName));
+        Assert.That(responseTool.ToolDescription, Is.EqualTo(customTool.ToolDescription));
+        Assert.That(responseTool.ToolFormat, Is.TypeOf<CustomToolTextFormat>());
+
+        CustomToolCallItem customToolCall = response1.OutputItems[0] as CustomToolCallItem;
+        Assert.That(customToolCall, Is.Not.Null);
+        Assert.That(customToolCall.Id, Is.Not.Null.And.Not.Empty);
+        Assert.That(customToolCall.Status, Is.EqualTo(CustomToolCallStatus.Completed));
+        Assert.That(customToolCall.CallId, Is.Not.Null.And.Not.Empty);
+        Assert.That(customToolCall.ToolName, Is.EqualTo(toolName));
+        Assert.That(customToolCall.Input, Does.Contain("hello").IgnoreCase);
+
+        ResponseItem customToolOutput = ResponseItem.CreateCustomToolCallOutputItem(customToolCall.CallId, [ResponseContentPart.CreateInputTextPart("hello world")]);
+
+        if (isStateless)
+        {
+            foreach (ResponseItem outputItem in response1.OutputItems)
+            {
+                options.InputItems.Add(outputItem);
+            }
+            Assert.That(options.InputItems.Count, Is.EqualTo(2));
+        }
+        else
+        {
+            options.PreviousResponseId = response1.Id;
+            options.InputItems.Clear();
+            Assert.That(options.InputItems.Count, Is.EqualTo(0));
+        }
+
+        options.ToolChoice = ResponseToolChoice.CreateAutoChoice();
+        options.InputItems.Add(customToolOutput);
+
+        // Second turn.
+        ResponseResult response2 = await client.CreateResponseAsync(options);
+        Assert.That(response2, Is.Not.Null);
+        Assert.That(response2.OutputItems, Has.Count.EqualTo(1));
+        Assert.That(response2.OutputItems[0], Is.InstanceOf<MessageResponseItem>());
+        Assert.That(response2.GetOutputText(), Is.Not.Null.And.Not.Empty);
+        Assert.That(response2.GetOutputText(), Does.Contain("hello world").IgnoreCase);
+    }
+
+    [RecordedTest]
+    public async Task CustomToolStreamingWorks()
+    {
+        const string toolName = "code_exec";
+
+        ResponsesClient client = GetProxiedResponsesClient();
+
+        List<ResponseItem> inputItems = [ResponseItem.CreateUserMessageItem("Use the code_exec tool to print hello world to the console.")];
+
+        CustomTool customTool = new(toolName)
+        {
+            ToolDescription = "Executes arbitrary Python code.",
+            ToolFormat = new CustomToolTextFormat(),
+        };
+
+        CreateResponseOptions options = new("gpt-5.6", inputItems)
+        {
+            Tools = { customTool },
+            ToolChoice = ResponseToolChoice.CreateRequiredChoice(),
+            StreamingEnabled = true,
+        };
+
+        StringBuilder inputBuilder = new();
+        int inputDeltaCount = 0;
+        int inputDoneCount = 0;
+        string toolCallItemId = null;
+        CustomToolCallItem completedCustomToolCall = null;
+
+        await foreach (StreamingResponseUpdate update in client.CreateResponseStreamingAsync(options))
+        {
+            if (update is StreamingResponseCustomToolCallInputDeltaUpdate inputDeltaUpdate)
+            {
+                Assert.That(inputDeltaUpdate.InputDelta, Is.Not.Null);
+                Assert.That(inputDeltaUpdate.ItemId, Is.Not.Null.And.Not.Empty);
+                Assert.That(inputDeltaUpdate.OutputIndex, Is.GreaterThanOrEqualTo(0));
+                toolCallItemId ??= inputDeltaUpdate.ItemId;
+                Assert.That(inputDeltaUpdate.ItemId, Is.EqualTo(toolCallItemId));
+                inputBuilder.Append(inputDeltaUpdate.InputDelta);
+                inputDeltaCount++;
+            }
+            else if (update is StreamingResponseCustomToolCallInputDoneUpdate inputDoneUpdate)
+            {
+                Assert.That(inputDoneUpdate.ItemId, Is.EqualTo(toolCallItemId));
+                Assert.That(inputDoneUpdate.OutputIndex, Is.GreaterThanOrEqualTo(0));
+                Assert.That(inputDoneUpdate.Input, Is.EqualTo(inputBuilder.ToString()));
+                inputDoneCount++;
+            }
+            else if (update is StreamingResponseOutputItemDoneUpdate outputItemDoneUpdate
+                && outputItemDoneUpdate.Item is CustomToolCallItem customToolCall)
+            {
+                completedCustomToolCall = customToolCall;
+            }
+        }
+
+        Assert.That(inputDeltaCount, Is.GreaterThan(0));
+        Assert.That(inputDoneCount, Is.EqualTo(1));
+        Assert.That(completedCustomToolCall, Is.Not.Null);
+        Assert.That(completedCustomToolCall.Id, Is.EqualTo(toolCallItemId));
+        Assert.That(completedCustomToolCall.Status, Is.EqualTo(CustomToolCallStatus.Completed));
+        Assert.That(completedCustomToolCall.ToolName, Is.EqualTo(toolName));
+        Assert.That(completedCustomToolCall.Input, Is.EqualTo(inputBuilder.ToString()));
+    }
+
+    [RecordedTest]
+    public async Task CustomToolWithGrammarWorks()
+    {
+        const string grammarDefinition = "^[0-9]+ \\+ [0-9]+$";
+
+        ResponsesClient client = GetProxiedResponsesClient();
+
+        List<ResponseItem> inputItems = [ResponseItem.CreateUserMessageItem("Use the math_exp tool to add four plus four.")];
+
+        CustomTool customTool = new("math_exp")
+        {
+            ToolDescription = "Creates a mathematical addition expression.",
+            ToolFormat = new CustomToolGrammarFormat(grammarDefinition, CustomToolGrammarFormatSyntax.Regex),
+        };
+
+        CreateResponseOptions options = new("gpt-5.6", inputItems)
+        {
+            Tools = { customTool },
+            ToolChoice = ResponseToolChoice.CreateRequiredChoice(),
+        };
+
+        ResponseResult response = await client.CreateResponseAsync(options);
+        Assert.That(response, Is.Not.Null);
+        Assert.That(response.Id, Is.Not.Null.And.Not.Empty);
+        Assert.That(response.Tools.Count, Is.EqualTo(1));
+        Assert.That(response.Tools[0], Is.InstanceOf<CustomTool>());
+        Assert.That(response.OutputItems, Has.Count.EqualTo(1));
+        Assert.That(response.OutputItems[0], Is.InstanceOf<CustomToolCallItem>());
+
+        CustomTool responseTool = response.Tools[0] as CustomTool;
+        Assert.That(responseTool, Is.Not.Null);
+        Assert.That(responseTool.ToolFormat, Is.InstanceOf<CustomToolGrammarFormat>());
+
+        CustomToolGrammarFormat responseToolFormat = responseTool.ToolFormat as CustomToolGrammarFormat;
+        Assert.That(responseToolFormat, Is.Not.Null);
+        Assert.That(responseToolFormat.Syntax, Is.EqualTo(CustomToolGrammarFormatSyntax.Regex));
+        Assert.That(responseToolFormat.Definition, Is.EqualTo(grammarDefinition));
+
+        CustomToolCallItem customToolCall = response.OutputItems[0] as CustomToolCallItem;
+        Assert.That(customToolCall, Is.Not.Null);
+        Assert.That(customToolCall.Status, Is.EqualTo(CustomToolCallStatus.Completed));
+        Assert.That(customToolCall.ToolName, Is.EqualTo(customTool.ToolName));
+        Assert.That(customToolCall.Input, Does.Match(grammarDefinition)); // e.g.: "4 + 4"
+    }
+
+
+    [RecordedTest]
     public async Task MCPToolWorks()
     {
-        string serverLabel = "dmcp";
-        Uri serverUri = new Uri("https://dmcp-server.deno.dev/sse");
+        string serverLabel = "microsoft-learn";
+        Uri serverUri = new Uri("https://learn.microsoft.com/api/mcp");
+        string toolName = "microsoft_docs_search";
 
-        McpToolCallApprovalPolicy approvalPolicy = new McpToolCallApprovalPolicy(GlobalMcpToolCallApprovalPolicy.NeverRequireApproval);
+        McpToolCallApprovalPolicy approvalPolicy = new McpToolCallApprovalPolicy(DefaultMcpToolCallApprovalPolicy.NeverRequireApproval);
 
-        CreateResponseOptions options = new([ResponseItem.CreateUserMessageItem("Roll 2d4+1")])
+        CreateResponseOptions options = new("gpt-5.6", [ResponseItem.CreateUserMessageItem("Search Microsoft Learn documentation for the OpenAI service.")])
         {
             Tools = {
                 new McpTool(serverLabel, serverUri)
                 {
-                    ServerDescription = "A Dungeons and Dragons MCP server to assist with dice rolling.",
+                    ServerDescription = "A Microsoft Learn MCP server for searching documentation.",
                     ToolCallApprovalPolicy = approvalPolicy
                 }
-            }
+            },
+            MaxToolCallCount = 1,
         };
 
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>("gpt-5");
+        ResponsesClient client = GetProxiedResponsesClient();
 
         ResponseResult response = await client.CreateResponseAsync(options);
         Assert.That(response.OutputItems, Has.Count.GreaterThan(0));
@@ -56,21 +378,22 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
         McpToolDefinitionListItem listItem = toolDefinitionListItems[0];
         Assert.That(listItem.ToolDefinitions, Has.Count.GreaterThan(0));
 
-        McpToolDefinition rollToolDefinition = listItem.ToolDefinitions.Where(toolDefinition => toolDefinition.Name == "roll").FirstOrDefault();
-        Assert.That(rollToolDefinition, Is.Not.Null);
-        Assert.That(rollToolDefinition.InputSchema, Is.Not.Null);
-        Assert.That(rollToolDefinition.Annotations, Is.Not.Null);
+        McpToolDefinition searchToolDefinition = listItem.ToolDefinitions.Where(toolDefinition => toolDefinition.Name == toolName).FirstOrDefault();
+        Assert.That(searchToolDefinition, Is.Not.Null);
+        Assert.That(searchToolDefinition!.InputSchema, Is.Not.Null);
+        Assert.That(searchToolDefinition!.Annotations, Is.Not.Null);
 
         // Check tool call.
         List<McpToolCallItem> toolCallItems = response.OutputItems.OfType<McpToolCallItem>().ToList();
         Assert.That(toolCallItems, Has.Count.EqualTo(1));
 
-        McpToolCallItem toolCallItem = toolCallItems[0];
-        Assert.That(toolCallItem.ServerLabel, Is.EqualTo(serverLabel));
-        Assert.That(toolCallItem.ToolName, Is.EqualTo("roll"));
-        Assert.That(toolCallItem.ToolArguments, Is.Not.Null);
-        Assert.That(toolCallItem.ToolOutput, Is.Not.Null.Or.Empty);
-        Assert.That(toolCallItem.Error, Is.Null);
+        McpToolCallItem toolCallItem = toolCallItems.FirstOrDefault(item => item.ToolName == toolName);
+        Assert.That(toolCallItem, Is.Not.Null);
+        Assert.That(toolCallItem!.ServerLabel, Is.EqualTo(serverLabel));
+        Assert.That(toolCallItem!.ToolName, Is.EqualTo(toolName));
+        Assert.That(toolCallItem!.ToolArguments, Is.Not.Null);
+        Assert.That(toolCallItem!.ToolOutput, Is.Not.Null.Or.Empty);
+        Assert.That(toolCallItem!.Error, Is.Null);
 
         // Check assistant message.
         MessageResponseItem assistantMessageItem = response.OutputItems.Last() as MessageResponseItem;
@@ -80,24 +403,25 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task MCPToolStreamingWorks()
     {
-        string serverLabel = "dmcp";
-        Uri serverUri = new Uri("https://dmcp-server.deno.dev/sse");
+        string serverLabel = "microsoft-learn";
+        Uri serverUri = new Uri("https://learn.microsoft.com/api/mcp");
 
-        McpToolCallApprovalPolicy approvalPolicy = new McpToolCallApprovalPolicy(GlobalMcpToolCallApprovalPolicy.NeverRequireApproval);
+        McpToolCallApprovalPolicy approvalPolicy = new McpToolCallApprovalPolicy(DefaultMcpToolCallApprovalPolicy.NeverRequireApproval);
 
-        CreateResponseOptions options = new([ResponseItem.CreateUserMessageItem("Roll 2d4+1")])
+        CreateResponseOptions options = new("gpt-5.6", [ResponseItem.CreateUserMessageItem("Search Microsoft Learn documentation for the OpenAI service.")])
         {
             Tools = {
                 new McpTool(serverLabel, serverUri)
                 {
-                    ServerDescription = "A Dungeons and Dragons MCP server to assist with dice rolling.",
+                    ServerDescription = "A Microsoft Learn MCP server for searching documentation.",
                     ToolCallApprovalPolicy = approvalPolicy
                 }
             },
+            MaxToolCallCount = 1,
             StreamingEnabled = true,
         };
 
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>("gpt-5");
+        ResponsesClient client = GetProxiedResponsesClient();
 
         AsyncCollectionResult<StreamingResponseUpdate> responseUpdates = client.CreateResponseStreamingAsync(options);
 
@@ -169,13 +493,13 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
             }
         }
 
-        Assert.That(mcpListToolsFailedUpdateCount, Is.GreaterThanOrEqualTo(0));
+        Assert.That(mcpListToolsFailedUpdateCount, Is.EqualTo(0));
         Assert.That(mcpListToolsInProgressUpdateCount, Is.GreaterThan(0));
-        Assert.That(mcpListToolsCompletedUpdateCount, Is.EqualTo(mcpListToolsInProgressUpdateCount - mcpListToolsFailedUpdateCount));
+        Assert.That(mcpListToolsCompletedUpdateCount, Is.EqualTo(mcpListToolsInProgressUpdateCount));
 
-        Assert.That(mcpCallFailedUpdateCount, Is.GreaterThanOrEqualTo(0));
+        Assert.That(mcpCallFailedUpdateCount, Is.EqualTo(0));
         Assert.That(mcpCallInProgressUpdateCount, Is.GreaterThan(0));
-        Assert.That(mcpCallCompletedUpdateCount, Is.EqualTo(mcpListToolsInProgressUpdateCount - mcpListToolsFailedUpdateCount));
+        Assert.That(mcpCallCompletedUpdateCount, Is.EqualTo(mcpCallInProgressUpdateCount));
 
         Assert.That(mcpCallArgumentsDoneUpdateCount, Is.GreaterThan(0));
         Assert.That(mcpCallArgumentsDeltaUpdateCount, Is.GreaterThanOrEqualTo(mcpCallArgumentsDoneUpdateCount));
@@ -186,32 +510,34 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     [TestCase(false)]
     public async Task MCPToolNeverRequiresApproval(bool useGlobalPolicy)
     {
-        string serverLabel = "dmcp";
-        Uri serverUri = new Uri("https://dmcp-server.deno.dev/sse");
+        string serverLabel = "microsoft-learn";
+        Uri serverUri = new Uri("https://learn.microsoft.com/api/mcp");
+        string toolName = "microsoft_docs_search";
 
         McpToolCallApprovalPolicy approvalPolicy = useGlobalPolicy
-            ? new McpToolCallApprovalPolicy(GlobalMcpToolCallApprovalPolicy.NeverRequireApproval)
+            ? new McpToolCallApprovalPolicy(DefaultMcpToolCallApprovalPolicy.NeverRequireApproval)
             : new McpToolCallApprovalPolicy(
                 new CustomMcpToolCallApprovalPolicy()
                 {
                     ToolsNeverRequiringApproval = new McpToolFilter()
                     {
-                        ToolNames = { "roll" }
+                        ToolNames = { toolName }
                     }
                 });
 
-        CreateResponseOptions options = new([ResponseItem.CreateUserMessageItem("Roll 2d4+1")])
+        CreateResponseOptions options = new("gpt-5.6", [ResponseItem.CreateUserMessageItem("Search Microsoft Learn documentation for the OpenAI service.")])
         {
             Tools = {
                 new McpTool(serverLabel, serverUri)
                 {
-                    ServerDescription = "A Dungeons and Dragons MCP server to assist with dice rolling.",
+                    ServerDescription = "A Microsoft Learn MCP server for searching documentation.",
                     ToolCallApprovalPolicy = approvalPolicy
                 }
-            }
+            },
+            MaxToolCallCount = 1,
         };
 
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>("gpt-5");
+        ResponsesClient client = GetProxiedResponsesClient();
 
         ResponseResult response = await client.CreateResponseAsync(options);
         Assert.That(response.OutputItems, Has.Count.GreaterThan(0));
@@ -220,6 +546,12 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
         // Confirm there are no approval requests and that the tool was called.
         Assert.That(response.OutputItems.OfType<McpToolCallApprovalRequestItem>().ToList(), Has.Count.EqualTo(0));
         Assert.That(response.OutputItems.OfType<McpToolCallItem>().ToList(), Has.Count.EqualTo(1));
+
+        McpToolCallItem toolCallItem = response.OutputItems
+            .OfType<McpToolCallItem>()
+            .FirstOrDefault(item => item.ToolName == toolName);
+        Assert.That(toolCallItem, Is.Not.Null);
+        Assert.That(toolCallItem!.ServerLabel, Is.EqualTo(serverLabel));
     }
 
     [RecordedTest]
@@ -227,32 +559,34 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     [TestCase(false)]
     public async Task MCPToolAlwaysRequiresApproval(bool useGlobalPolicy)
     {
-        string serverLabel = "dmcp";
-        Uri serverUri = new Uri("https://dmcp-server.deno.dev/sse");
+        string serverLabel = "microsoft-learn";
+        Uri serverUri = new Uri("https://learn.microsoft.com/api/mcp");
+        string toolName = "microsoft_docs_search";
 
         McpToolCallApprovalPolicy approvalPolicy = useGlobalPolicy
-            ? new McpToolCallApprovalPolicy(GlobalMcpToolCallApprovalPolicy.AlwaysRequireApproval)
+            ? new McpToolCallApprovalPolicy(DefaultMcpToolCallApprovalPolicy.AlwaysRequireApproval)
             : new McpToolCallApprovalPolicy(
                 new CustomMcpToolCallApprovalPolicy()
                 {
                     ToolsAlwaysRequiringApproval = new McpToolFilter()
                     {
-                        ToolNames = { "roll" }
+                        ToolNames = { toolName }
                     }
                 });
 
-        CreateResponseOptions options = new([ResponseItem.CreateUserMessageItem("Roll 2d4+1")])
+        CreateResponseOptions options = new("gpt-5.6", [ResponseItem.CreateUserMessageItem("Search Microsoft Learn documentation for the OpenAI service.")])
         {
             Tools = {
                 new McpTool(serverLabel, serverUri)
                 {
-                    ServerDescription = "A Dungeons and Dragons MCP server to assist with dice rolling.",
+                    ServerDescription = "A Microsoft Learn MCP server for searching documentation.",
                     ToolCallApprovalPolicy = approvalPolicy
                 }
-            }
+            },
+            MaxToolCallCount = 1,
         };
 
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>("gpt-5");
+        ResponsesClient client = GetProxiedResponsesClient();
 
         ResponseResult response1 = await client.CreateResponseAsync(options);
         Assert.That(response1.OutputItems, Has.Count.GreaterThan(0));
@@ -264,7 +598,7 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
         Assert.That(approvalRequestItem, Is.Not.Null);
 
         // Prepare the response.
-        McpToolCallApprovalResponseItem approvalResponseItem = new(approvalRequestItem.Id, true);
+        McpToolCallApprovalResponseItem approvalResponseItem = new(approvalRequestItem!.Id, true);
         options.PreviousResponseId = response1.Id;
         options.InputItems.Clear();
         options.InputItems.Add(approvalResponseItem);
@@ -272,32 +606,40 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
         ResponseResult response2 = await client.CreateResponseAsync(options);
         Assert.That(response2.OutputItems, Has.Count.GreaterThan(0));
         Assert.That(response2.OutputItems.OfType<McpToolCallItem>().ToList(), Has.Count.EqualTo(1));
+
+        McpToolCallItem toolCallItem = response2.OutputItems
+            .OfType<McpToolCallItem>()
+            .FirstOrDefault(item => item.ToolName == toolName);
+        Assert.That(toolCallItem, Is.Not.Null);
+        Assert.That(toolCallItem!.ServerLabel, Is.EqualTo(serverLabel));
     }
 
     [RecordedTest]
     public async Task MCPToolWithAllowedTools()
     {
-        string serverLabel = "dmcp";
-        Uri serverUri = new Uri("https://dmcp-server.deno.dev/sse");
+        string serverLabel = "microsoft-learn";
+        Uri serverUri = new Uri("https://learn.microsoft.com/api/mcp");
+        string toolName = "microsoft_docs_search";
 
-        McpToolCallApprovalPolicy approvalPolicy = new McpToolCallApprovalPolicy(GlobalMcpToolCallApprovalPolicy.NeverRequireApproval);
+        McpToolCallApprovalPolicy approvalPolicy = new McpToolCallApprovalPolicy(DefaultMcpToolCallApprovalPolicy.NeverRequireApproval);
 
-        CreateResponseOptions options = new([ResponseItem.CreateUserMessageItem("Roll 2d4+1")])
+        CreateResponseOptions options = new("gpt-5.6", [ResponseItem.CreateUserMessageItem("Search Microsoft Learn documentation for the OpenAI service.")])
         {
             Tools = {
                 new McpTool(serverLabel, serverUri)
                 {
-                    ServerDescription = "A Dungeons and Dragons MCP server to assist with dice rolling.",
+                    ServerDescription = "A Microsoft Learn MCP server for searching documentation.",
                     ToolCallApprovalPolicy = approvalPolicy,
                     AllowedTools = new McpToolFilter()
                     {
-                        ToolNames = { "roll" }
+                        ToolNames = { toolName }
                     }
                 }
-            }
+            },
+            MaxToolCallCount = 1,
         };
 
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>("gpt-5");
+        ResponsesClient client = GetProxiedResponsesClient();
 
         ResponseResult response = await client.CreateResponseAsync(options);
         Assert.That(response.OutputItems, Has.Count.GreaterThan(0));
@@ -307,38 +649,40 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
         List<McpToolCallItem> toolCallItems = response.OutputItems.OfType<McpToolCallItem>().ToList();
         Assert.That(toolCallItems, Has.Count.EqualTo(1));
 
-        McpToolCallItem toolCallItem = toolCallItems[0];
-        Assert.That(toolCallItem.ServerLabel, Is.EqualTo(serverLabel));
-        Assert.That(toolCallItem.ToolName, Is.EqualTo("roll"));
-        Assert.That(toolCallItem.ToolArguments, Is.Not.Null);
-        Assert.That(toolCallItem.ToolOutput, Is.Not.Null.Or.Empty);
-        Assert.That(toolCallItem.Error, Is.Null);
+        McpToolCallItem toolCallItem = toolCallItems.FirstOrDefault(item => item.ToolName == toolName);
+        Assert.That(toolCallItem, Is.Not.Null);
+        Assert.That(toolCallItem!.ServerLabel, Is.EqualTo(serverLabel));
+        Assert.That(toolCallItem!.ToolName, Is.EqualTo(toolName));
+        Assert.That(toolCallItem!.ToolArguments, Is.Not.Null);
+        Assert.That(toolCallItem!.ToolOutput, Is.Not.Null.Or.Empty);
+        Assert.That(toolCallItem!.Error, Is.Null);
     }
 
     [RecordedTest]
     public async Task MCPToolWithDisallowedTools()
     {
-        string serverLabel = "dmcp";
-        Uri serverUri = new Uri("https://dmcp-server.deno.dev/sse");
+        string serverLabel = "microsoft-learn";
+        Uri serverUri = new Uri("https://learn.microsoft.com/api/mcp");
 
-        McpToolCallApprovalPolicy approvalPolicy = new McpToolCallApprovalPolicy(GlobalMcpToolCallApprovalPolicy.NeverRequireApproval);
+        McpToolCallApprovalPolicy approvalPolicy = new McpToolCallApprovalPolicy(DefaultMcpToolCallApprovalPolicy.NeverRequireApproval);
 
-        CreateResponseOptions options = new([ResponseItem.CreateUserMessageItem("Roll 2d4+1")])
+        CreateResponseOptions options = new("gpt-5.6", [ResponseItem.CreateUserMessageItem("Search Microsoft Learn documentation for the OpenAI service.")])
         {
             Tools = {
                 new McpTool(serverLabel, serverUri)
                 {
-                    ServerDescription = "A Dungeons and Dragons MCP server to assist with dice rolling.",
+                    ServerDescription = "A Microsoft Learn MCP server for searching documentation.",
                     ToolCallApprovalPolicy = approvalPolicy,
                     AllowedTools = new McpToolFilter()
                     {
-                        ToolNames = { "not_roll" } // This is not a real tool. We use this to implicitly disallow everything else.
+                        ToolNames = { "not_microsoft_docs_search" } // This is not a real tool. We use this to implicitly disallow everything else.
                     }
                 }
-            }
+            },
+            MaxToolCallCount = 1,
         };
 
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>("gpt-5");
+        ResponsesClient client = GetProxiedResponsesClient();
 
         ResponseResult response = await client.CreateResponseAsync(options);
         Assert.That(response.OutputItems, Has.Count.GreaterThan(0));
@@ -372,10 +716,10 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
             await Task.Delay(TimeSpan.FromSeconds(5));
         }
 
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         ResponseResult response = await client.CreateResponseAsync(
-            new CreateResponseOptions([ResponseItem.CreateUserMessageItem("Using the file search tool, what's Travis's favorite food?")])
+            new CreateResponseOptions(TestModel.Responses, [ResponseItem.CreateUserMessageItem("Using the file search tool, what's Travis's favorite food?")])
             {
                 Tools =
                 {
@@ -405,12 +749,122 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     }
 
     [RecordedTest]
+    public async Task FileSearchCallStreaming()
+    {
+        OpenAIFileClient fileClient = GetProxiedOpenAIClient<OpenAIFileClient>();
+        OpenAIFile testFile = await fileClient.UploadFileAsync(
+            BinaryData.FromString("""
+                    Travis's favorite food is pizza.
+                    """),
+            "test_favorite_foods.txt",
+            FileUploadPurpose.UserData);
+        Validate(testFile);
+
+        VectorStoreClient vscClient = GetProxiedOpenAIClient<VectorStoreClient>();
+        VectorStore vectorStore = await vscClient.CreateVectorStoreAsync(
+            new VectorStoreCreationOptions()
+            {
+                FileIds = { testFile.Id },
+            });
+        Validate(vectorStore);
+
+        if (Mode != RecordedTestMode.Playback)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5));
+        }
+
+        ResponsesClient client = GetProxiedResponsesClient();
+
+        CreateResponseOptions responseOptions = new(TestModel.Responses, [ResponseItem.CreateUserMessageItem("Using the file search tool, what's Travis's favorite food?")])
+        {
+            Tools =
+            {
+                ResponseTool.CreateFileSearchTool(vectorStoreIds: [vectorStore.Id]),
+            },
+            StreamingEnabled = true,
+        };
+
+        string fileSearchItemId = null;
+        int inProgressCount = 0;
+        int searchingCount = 0;
+        int completedCount = 0;
+        bool gotFinishedFileSearchItem = false;
+        int annotationAddedCount = 0;
+        string messageItemId = null;
+        FileCitationMessageAnnotation fileCitationAnnotation = null;
+
+        await foreach (StreamingResponseUpdate update
+            in client.CreateResponseStreamingAsync(responseOptions))
+        {
+            if (update is StreamingResponseFileSearchCallInProgressUpdate fileSearchCallInProgressUpdate)
+            {
+                Assert.That(fileSearchCallInProgressUpdate.ItemId, Is.Not.Null.And.Not.Empty);
+                fileSearchItemId ??= fileSearchCallInProgressUpdate.ItemId;
+                Assert.That(fileSearchItemId, Is.EqualTo(fileSearchCallInProgressUpdate.ItemId));
+                Assert.That(fileSearchCallInProgressUpdate.OutputIndex, Is.EqualTo(0));
+                inProgressCount++;
+            }
+            else if (update is StreamingResponseFileSearchCallSearchingUpdate fileSearchCallSearchingUpdate)
+            {
+                Assert.That(fileSearchCallSearchingUpdate.ItemId, Is.Not.Null.And.Not.Empty);
+                fileSearchItemId ??= fileSearchCallSearchingUpdate.ItemId;
+                Assert.That(fileSearchItemId, Is.EqualTo(fileSearchCallSearchingUpdate.ItemId));
+                Assert.That(fileSearchCallSearchingUpdate.OutputIndex, Is.EqualTo(0));
+                searchingCount++;
+            }
+            else if (update is StreamingResponseFileSearchCallCompletedUpdate fileSearchCallCompletedUpdate)
+            {
+                Assert.That(fileSearchCallCompletedUpdate.ItemId, Is.Not.Null.And.Not.Empty);
+                fileSearchItemId ??= fileSearchCallCompletedUpdate.ItemId;
+                Assert.That(fileSearchItemId, Is.EqualTo(fileSearchCallCompletedUpdate.ItemId));
+                Assert.That(fileSearchCallCompletedUpdate.OutputIndex, Is.EqualTo(0));
+                completedCount++;
+            }
+            else if (update is StreamingResponseOutputTextAnnotationAddedUpdate outputTextAnnotationAddedUpdate)
+            {
+                Assert.That(outputTextAnnotationAddedUpdate.ItemId, Is.Not.Null.And.Not.Empty);
+                Assert.That(outputTextAnnotationAddedUpdate.OutputIndex, Is.EqualTo(1));
+                Assert.That(outputTextAnnotationAddedUpdate.ContentIndex, Is.EqualTo(0));
+                Assert.That(outputTextAnnotationAddedUpdate.AnnotationIndex, Is.EqualTo(0));
+                Assert.That(outputTextAnnotationAddedUpdate.Annotation, Is.InstanceOf<FileCitationMessageAnnotation>());
+
+                messageItemId ??= outputTextAnnotationAddedUpdate.ItemId;
+                Assert.That(outputTextAnnotationAddedUpdate.ItemId, Is.EqualTo(messageItemId));
+
+                fileCitationAnnotation = (FileCitationMessageAnnotation)outputTextAnnotationAddedUpdate.Annotation;
+                Assert.That(fileCitationAnnotation.FileId, Is.EqualTo(testFile.Id));
+                Assert.That(fileCitationAnnotation.Filename, Is.EqualTo(testFile.Filename));
+                Assert.That(fileCitationAnnotation.Index, Is.GreaterThan(0));
+                annotationAddedCount++;
+            }
+            else if (update is StreamingResponseOutputItemDoneUpdate outputItemDoneUpdate)
+            {
+                if (outputItemDoneUpdate.Item is FileSearchCallResponseItem fileSearchCallItem)
+                {
+                    Assert.That(fileSearchCallItem.Status, Is.EqualTo(FileSearchCallStatus.Completed));
+                    Assert.That(fileSearchCallItem.Id, Is.EqualTo(fileSearchItemId));
+                    gotFinishedFileSearchItem = true;
+                }
+            }
+        }
+
+        Assert.That(gotFinishedFileSearchItem, Is.True);
+        Assert.That(inProgressCount, Is.EqualTo(1));
+        Assert.That(searchingCount, Is.EqualTo(1));
+        Assert.That(completedCount, Is.EqualTo(1));
+        Assert.That(fileSearchItemId, Is.Not.Null.And.Not.Empty);
+        Assert.That(annotationAddedCount, Is.GreaterThan(0));
+        Assert.That(messageItemId, Is.Not.Null.And.Not.Empty);
+        Assert.That(fileCitationAnnotation, Is.Not.Null);
+    }
+
+    [RecordedTest]
     public async Task CodeInterpreterToolWithoutFileIds()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         ResponseTool codeInterpreterTool = ResponseTool.CreateCodeInterpreterTool(new CodeInterpreterToolContainer(CodeInterpreterToolContainerConfiguration.CreateAutomaticContainerConfiguration()));
-        CreateResponseOptions responseOptions = new([ResponseItem.CreateUserMessageItem("Calculate the factorial of 5 using Python code.")])
+        CreateResponseOptions responseOptions = new(TestModel.Responses, [ResponseItem.CreateUserMessageItem("Calculate the factorial of 5 using Python code.")])
         {
             Tools = { codeInterpreterTool },
         };
@@ -437,10 +891,10 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task CodeInterpreterToolWithEmptyFileIds()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         ResponseTool codeInterpreterTool = ResponseTool.CreateCodeInterpreterTool(new(new AutomaticCodeInterpreterToolContainerConfiguration()));
-        CreateResponseOptions responseOptions = new([ResponseItem.CreateUserMessageItem("Generate a simple chart using matplotlib. Ensure you emit debug logging and include any resulting log file output.")])
+        CreateResponseOptions responseOptions = new(TestModel.Responses, [ResponseItem.CreateUserMessageItem("Generate a simple chart using matplotlib. Ensure you emit debug logging and include any resulting log file output.")])
         {
             Tools = { codeInterpreterTool },
         };
@@ -469,10 +923,10 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     public async Task CodeInterpreterToolWithContainerIdFromContainerApi()
     {
         ContainerClient containerClient = GetProxiedOpenAIClient<ContainerClient>();
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         // Create a container first using the Containers API
-        CreateContainerBody containerBody = new("test-container-for-code-interpreter");
+        ContainerCreationOptions containerBody = new("test-container-for-code-interpreter");
         var containerResult = await containerClient.CreateContainerAsync(containerBody);
         Assert.That(containerResult.Value, Is.Not.Null);
         Assert.That(containerResult.Value.Id, Is.Not.Null.And.Not.Empty);
@@ -483,7 +937,7 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
         {
             // Create CodeInterpreter tool with the container ID
             ResponseTool codeInterpreterTool = ResponseTool.CreateCodeInterpreterTool(new(containerId));
-            CreateResponseOptions responseOptions = new([ResponseItem.CreateUserMessageItem("Calculate the factorial of 5 using Python code.")])
+            CreateResponseOptions responseOptions = new(TestModel.Responses, [ResponseItem.CreateUserMessageItem("Calculate the factorial of 5 using Python code.")])
             {
                 Tools = { codeInterpreterTool },
             };
@@ -524,7 +978,7 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     public async Task CodeInterpreterToolWithUploadedFileIds()
     {
         OpenAIFileClient fileClient = GetProxiedOpenAIClient<OpenAIFileClient>();
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         // Create some test files to upload
         string csvContent = "name,age,city\nAlice,30,New York\nBob,25,Los Angeles\nCharlie,35,Chicago";
@@ -548,7 +1002,7 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
 
             // Create CodeInterpreter tool with uploaded file IDs
             ResponseTool codeInterpreterTool = ResponseTool.CreateCodeInterpreterTool(new(CodeInterpreterToolContainerConfiguration.CreateAutomaticContainerConfiguration(fileIds)));
-            CreateResponseOptions responseOptions = new([ResponseItem.CreateUserMessageItem("Analyze the CSV data in the uploaded file and create a simple visualization. Also run the Python script that was uploaded.")])
+            CreateResponseOptions responseOptions = new(TestModel.Responses, [ResponseItem.CreateUserMessageItem("Analyze the CSV data in the uploaded file and create a simple visualization. Also run the Python script that was uploaded.")])
             {
                 Tools = { codeInterpreterTool },
             };
@@ -585,10 +1039,10 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task CodeInterpreterToolStreaming()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         ResponseTool codeInterpreterTool = ResponseTool.CreateCodeInterpreterTool(new CodeInterpreterToolContainer(new AutomaticCodeInterpreterToolContainerConfiguration()));
-        CreateResponseOptions responseOptions = new([ResponseItem.CreateUserMessageItem("Calculate the factorial of 5 using Python code and show me the code step by step.")])
+        CreateResponseOptions responseOptions = new(TestModel.Responses, [ResponseItem.CreateUserMessageItem("Calculate the factorial of 5 using Python code and show me the code step by step.")])
         {
             Tools = { codeInterpreterTool },
             StreamingEnabled = true,
@@ -620,7 +1074,7 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     public async Task CodeInterpreterToolStreamingWithFiles()
     {
         OpenAIFileClient fileClient = GetProxiedOpenAIClient<OpenAIFileClient>();
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         // Create test CSV data
         string csvContent = "x,y\n1,2\n2,4\n3,6\n4,8\n5,10";
@@ -636,7 +1090,7 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
 
             // Create CodeInterpreter tool with uploaded file IDs
             ResponseTool codeInterpreterTool = ResponseTool.CreateCodeInterpreterTool(new CodeInterpreterToolContainer(CodeInterpreterToolContainerConfiguration.CreateAutomaticContainerConfiguration(fileIds)));
-            CreateResponseOptions responseOptions = new([ResponseItem.CreateUserMessageItem("Load the CSV file and create a simple plot visualization showing the relationship between x and y values.")])
+            CreateResponseOptions responseOptions = new(TestModel.Responses, [ResponseItem.CreateUserMessageItem("Load the CSV file and create a simple plot visualization showing the relationship between x and y values.")])
             {
                 Tools = { codeInterpreterTool },
                 StreamingEnabled = true,
@@ -684,9 +1138,10 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task ComputerToolWithScreenshotRoundTrip()
     {
-        ResponsesClient client = TestEnvironment.GetTestClient<ResponsesClient>("computer-use-preview-2025-03-11");
+        ResponsesClient client = GetProxiedResponsesClient();
         ResponseTool computerTool = ResponseTool.CreateComputerTool(ComputerToolEnvironment.Windows, 1024, 768);
         CreateResponseOptions responseOptions = new(
+            "computer-use-preview-2025-03-11",
             [
                 ResponseItem.CreateDeveloperMessageItem("Call tools when the user asks to perform computer-related tasks like clicking interface elements."),
                 ResponseItem.CreateUserMessageItem("Click on the Save button.")
@@ -747,9 +1202,10 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task ImageGenToolWorks()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         CreateResponseOptions options = new(
+            TestModel.Responses,
             [ResponseItem.CreateUserMessageItem("Generate an image of gray tabby cat hugging an otter with an orange scarf")])
         {
             Tools =
@@ -783,13 +1239,55 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     }
 
     [RecordedTest]
+    public async Task ImageGenToolWithAction()
+    {
+        ResponsesClient client = GetProxiedResponsesClient();
+
+        ImageGenerationTool imageGenTool = ResponseTool.CreateImageGenerationTool(
+            model: "gpt-image-1",
+            quality: ImageGenerationToolQuality.High,
+            size: ImageGenerationToolSize.W1024xH1024,
+            outputFileFormat: ImageGenerationToolOutputFileFormat.Png,
+            moderationLevel: ImageGenerationToolModerationLevel.Auto,
+            background: ImageGenerationToolBackground.Transparent,
+            action: ImageGenerationToolAction.Generate);
+
+        CreateResponseOptions options = new(
+            TestModel.Responses,
+            [ResponseItem.CreateUserMessageItem("Generate an image of a golden retriever playing fetch in a sunny park")])
+        {
+            Tools = { imageGenTool }
+        };
+
+        ResponseResult response = await client.CreateResponseAsync(options);
+
+        Assert.That(response.OutputItems, Has.Count.EqualTo(2));
+        Assert.That(response.OutputItems[0], Is.InstanceOf<ImageGenerationCallResponseItem>());
+        Assert.That(response.OutputItems[1], Is.InstanceOf<MessageResponseItem>());
+
+        Assert.That(response.Tools.FirstOrDefault(), Is.TypeOf<ImageGenerationTool>());
+        ImageGenerationTool responseTool = (ImageGenerationTool)response.Tools.First();
+        // The action is not populated in the Tool response. It is, however, in the ImageGenerationCallResponseItem
+        // Assert.That(responseTool.Action, Is.EqualTo(ImageGenerationToolAction.Generate));
+
+        ImageGenerationCallResponseItem imageGenResponse = (ImageGenerationCallResponseItem)response.OutputItems[0];
+        Assert.That(imageGenResponse.Status, Is.EqualTo(ImageGenerationCallStatus.Completed));
+        Assert.That(imageGenResponse.ImageResultBytes.ToArray(), Is.Not.Null.And.Not.Empty);
+        Assert.That(imageGenResponse.Action, Is.EqualTo(ImageGenerationToolAction.Generate));
+        Assert.That(imageGenResponse.Background, Is.EqualTo(ImageGenerationToolBackground.Transparent));
+        Assert.That(imageGenResponse.Quality, Is.EqualTo(ImageGenerationToolQuality.High));
+        Assert.That(imageGenResponse.Size, Is.EqualTo(ImageGenerationToolSize.W1024xH1024));
+        Assert.That(imageGenResponse.RevisedPrompt, Is.Not.Null.And.Not.Empty);
+    }
+
+    [RecordedTest]
     public async Task ImageGenToolStreaming()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
         const string message = "Draw a gorgeous image of a river made of white owl feathers, snaking its way through a serene winter landscape";
 
-        CreateResponseOptions responseOptions = new([ResponseItem.CreateUserMessageItem(message)])
+        CreateResponseOptions responseOptions = new(TestModel.Responses, [ResponseItem.CreateUserMessageItem(message)])
         {
             Tools =
             {
@@ -799,6 +1297,7 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
                     size: ImageGenerationToolSize.W1024xH1024,
                     outputFileFormat: ImageGenerationToolOutputFileFormat.Png,
                     moderationLevel: ImageGenerationToolModerationLevel.Auto,
+                    partialImageCount: 1,
                     background: ImageGenerationToolBackground.Transparent)
             },
             StreamingEnabled = true,
@@ -871,25 +1370,22 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task ImageGenToolInputMaskWithImageBytes()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>(options: new() { NetworkTimeout = TimeSpan.FromMinutes(5) });
+        ResponsesClient client = GetProxiedResponsesClient(options: new() { NetworkTimeout = TimeSpan.FromMinutes(5) });
 
         string imagePath = Path.Combine("Assets", "images_empty_room.png");
         string imageMediaType = "image/png";
-        BinaryData imageBytes = BinaryData.FromBytes(await File.ReadAllBytesAsync(imagePath));
-        Uri imageDataUri = new($"data:{imageMediaType};base64,{Convert.ToBase64String(imageBytes.ToArray())}");
+        BinaryData imageBytes = BinaryData.FromBytes(await File.ReadAllBytesAsync(imagePath), imageMediaType);
 
         string maskPath = Path.Combine("Assets", "images_empty_room_with_mask.png");
         string maskMediaType = "image/png";
-        BinaryData maskBytes = BinaryData.FromBytes(File.ReadAllBytes(maskPath));
-        Uri maskDataUri = new($"data:{maskMediaType};base64,{Convert.ToBase64String(maskBytes.ToArray())}");
-
+        BinaryData maskBytes = BinaryData.FromBytes(File.ReadAllBytes(maskPath), maskMediaType);
 
         List<ResponseItem> inputItems = [
             ResponseItem.CreateUserMessageItem("Edit this image by adding a big cat with big round eyes and large cat ears, sitting in an empty room and looking at the camera."),
-            ResponseItem.CreateUserMessageItem([ResponseContentPart.CreateInputImagePart(imageDataUri)])
+            ResponseItem.CreateUserMessageItem([ResponseContentPart.CreateInputImagePart(imageBytes)])
         ];
 
-        CreateResponseOptions options = new(inputItems)
+        CreateResponseOptions options = new(TestModel.Responses, inputItems)
         {
             Tools =
             {
@@ -898,7 +1394,7 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
                     outputFileFormat: ImageGenerationToolOutputFileFormat.Png,
                     size: ImageGenerationToolSize.W1024xH1024,
                     quality: ImageGenerationToolQuality.Low,
-                    inputImageMask: new(maskDataUri))
+                    inputImageMask: new(maskBytes))
             }
         };
 
@@ -923,7 +1419,7 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task ImageGenToolInputMaskWithImageUri()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>(options: new() { NetworkTimeout = TimeSpan.FromMinutes(5) });
+        ResponsesClient client = GetProxiedResponsesClient(options: new() { NetworkTimeout = TimeSpan.FromMinutes(5) });
 
         Uri imageUri = new("https://github.com/openai/openai-dotnet/blob/db6328accdd7927f19915cdc5412eb841f2447c1/tests/Assets/images_empty_room.png?raw=true");
         Uri maskUri = new("https://github.com/openai/openai-dotnet/blob/db6328accdd7927f19915cdc5412eb841f2447c1/tests/Assets/images_empty_room_with_mask.png?raw=true");
@@ -933,7 +1429,7 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
             ResponseItem.CreateUserMessageItem([ResponseContentPart.CreateInputImagePart(imageUri)])
         ];
 
-        CreateResponseOptions options = new(inputItems)
+        CreateResponseOptions options = new(TestModel.Responses, inputItems)
         {
             Tools =
             {
@@ -967,7 +1463,7 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     [Category("MPFD")]
     public async Task ImageGenToolInputMaskWithFileId()
     {
-        ResponsesClient client = GetProxiedOpenAIClient<ResponsesClient>(options: new() { NetworkTimeout = TimeSpan.FromMinutes(5) });
+        ResponsesClient client = GetProxiedResponsesClient(options: new() { NetworkTimeout = TimeSpan.FromMinutes(5) });
 
         OpenAIFileClient fileClient = GetProxiedOpenAIClient<OpenAIFileClient>();
 
@@ -1003,7 +1499,7 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
             ResponseItem.CreateUserMessageItem([ResponseContentPart.CreateInputImagePart(imageFileId: imageFile.Id)])
         ];
 
-        CreateResponseOptions options = new(inputItems)
+        CreateResponseOptions options = new(TestModel.Responses, inputItems)
         {
             Tools =
             {
@@ -1036,72 +1532,167 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
     [RecordedTest]
     public async Task WebSearchCall()
     {
-        ResponsesClient client = TestEnvironment.GetTestClient<ResponsesClient>();
-        ResponseResult response = await client.CreateResponseAsync(
-            new CreateResponseOptions([ResponseItem.CreateUserMessageItem("Searching the internet, what's the weather like in Seattle?")])
+        ResponsesClient client = GetProxiedResponsesClient();
+
+        List<ResponseItem> inputItems =
+        [
+            ResponseItem.CreateUserMessageItem("Searching the internet, tell me about something good that happened today.")
+        ];
+
+        CreateResponseOptions createResponseOptions = new(TestModel.Responses, inputItems)
+        {
+            Tools =
             {
-                Tools =
+                new WebSearchTool()
                 {
-                    ResponseTool.CreateWebSearchTool()
-                },
-                ToolChoice = ResponseToolChoice.CreateWebSearchChoice()
-            });
+                    UserLocation = new WebSearchToolApproximateLocation() { City = "Redmond", Region = "Washington", Country = "US" },
+                    SearchContextSize = WebSearchToolContextSize.Low
+                }
+            },
+            ToolChoice = ResponseToolChoice.CreateWebSearchChoice(),
+            IncludedProperties = { IncludedResponseProperty.WebSearchCallActionSources }
+        };
 
-        Assert.That(response.OutputItems, Has.Count.EqualTo(2));
-        Assert.That(response.OutputItems[0], Is.InstanceOf<WebSearchCallResponseItem>());
-        Assert.That(response.OutputItems[1], Is.InstanceOf<MessageResponseItem>());
+        ResponseResult response = await client.CreateResponseAsync(createResponseOptions);
+        Assert.That(response.Tools.FirstOrDefault(), Is.TypeOf<WebSearchTool>());
+        Assert.That(response.OutputItems, Has.Count.GreaterThan(0));
 
-        MessageResponseItem message = (MessageResponseItem)response.OutputItems[1];
+        List<WebSearchCallResponseItem> webSearchCalls = response.OutputItems.OfType<WebSearchCallResponseItem>().ToList();
+        Assert.That(webSearchCalls, Has.Count.GreaterThan(0));
+        Assert.That(webSearchCalls.All(call => call.Action != null), Is.True);
+
+        List<WebSearchCallResponseItem> searchWebSearchCalls = webSearchCalls.Where(call => call.Action is WebSearchSearchAction).ToList();
+        Assert.That(searchWebSearchCalls, Has.Count.GreaterThan(0));
+        foreach (WebSearchCallResponseItem call in searchWebSearchCalls)
+        {
+            WebSearchSearchAction searchAction = (WebSearchSearchAction)call.Action;
+            Assert.That(searchAction.Queries, Has.Count.GreaterThan(0));
+            Assert.That(searchAction.Sources, Has.Count.GreaterThan(0));
+        }
+
+        MessageResponseItem message = response.OutputItems.Last() as MessageResponseItem;
+        Assert.That(message, Is.Not.Null);
         Assert.That(message.Content, Has.Count.GreaterThan(0));
         Assert.That(message.Content[0].Kind, Is.EqualTo(ResponseContentPartKind.OutputText));
         Assert.That(message.Content[0].Text, Is.Not.Null.And.Not.Empty);
         Assert.That(message.Content[0].OutputTextAnnotations, Has.Count.GreaterThan(0));
+    }
 
+    [RecordedTest]
+    public async Task WebSearchCallWithReasoning()
+    {
+        ResponsesClient client = GetProxiedResponsesClient();
+
+        List<ResponseItem> inputItems =
+        [
+            ResponseItem.CreateUserMessageItem("Open the following page and tell me what it says about sources: https://developers.openai.com/api/docs/guides/tools-web-search")
+        ];
+
+        // NOTE: The "open page" and "find in page" actions are only support by reasoning models.
+        CreateResponseOptions createResponseOptions = new("gpt-5.1", inputItems)
+        {
+            Tools = { new WebSearchTool() },
+            ToolChoice = ResponseToolChoice.CreateWebSearchChoice(),
+            ReasoningOptions = new() { ReasoningEffortLevel = ResponseReasoningEffortLevel.High },
+            IncludedProperties = { IncludedResponseProperty.WebSearchCallActionSources }
+        };
+
+        ResponseResult response = await client.CreateResponseAsync(createResponseOptions);
         Assert.That(response.Tools.FirstOrDefault(), Is.TypeOf<WebSearchTool>());
+        Assert.That(response.OutputItems, Has.Count.GreaterThan(0));
+
+        List<WebSearchCallResponseItem> webSearchCalls = response.OutputItems.OfType<WebSearchCallResponseItem>().ToList();
+        Assert.That(webSearchCalls, Has.Count.GreaterThan(0));
+        Assert.That(webSearchCalls.All(call => call.Action != null), Is.True);
+
+        List<WebSearchCallResponseItem> openPageWebSearchCalls = webSearchCalls.Where(call => call.Action is WebSearchOpenPageAction).ToList();
+        Assert.That(openPageWebSearchCalls, Has.Count.GreaterThan(0));
+        foreach (WebSearchCallResponseItem call in openPageWebSearchCalls)
+        {
+            WebSearchOpenPageAction openPageAction = (WebSearchOpenPageAction)call.Action;
+            Assert.That(openPageAction.Uri.AbsoluteUri, Is.Not.Null.Or.Empty);
+        }
+
+        List<WebSearchCallResponseItem> findInPageWebSearchCalls = webSearchCalls.Where(call => call.Action is WebSearchFindInPageAction).ToList();
+        Assert.That(findInPageWebSearchCalls, Has.Count.GreaterThan(0));
+        foreach (WebSearchCallResponseItem call in findInPageWebSearchCalls)
+        {
+            WebSearchFindInPageAction findInPageAction = (WebSearchFindInPageAction)call.Action;
+            Assert.That(findInPageAction.Uri.AbsoluteUri, Is.Not.Null.Or.Empty);
+            Assert.That(findInPageAction.Pattern, Is.Not.Null.Or.Empty);
+        }
+
+        MessageResponseItem message = response.OutputItems.Last() as MessageResponseItem;
+        Assert.That(message, Is.Not.Null);
+        Assert.That(message.Content, Has.Count.GreaterThan(0));
+        Assert.That(message.Content[0].Kind, Is.EqualTo(ResponseContentPartKind.OutputText));
+        Assert.That(message.Content[0].Text, Is.Not.Null.And.Not.Empty);
+        Assert.That(message.Content[0].OutputTextAnnotations, Has.Count.GreaterThan(0));
     }
 
     [RecordedTest]
     public async Task WebSearchCallPreview()
     {
-        ResponsesClient client = TestEnvironment.GetTestClient<ResponsesClient>();
-        ResponseResult response = await client.CreateResponseAsync(
-            new CreateResponseOptions([ResponseItem.CreateUserMessageItem("What was a positive news story from today?")])
-            {
-                Tools =
-                {
-                    ResponseTool.CreateWebSearchPreviewTool()
-                },
-                ToolChoice = ResponseToolChoice.CreateWebSearchChoice()
-            });
+        ResponsesClient client = GetProxiedResponsesClient();
 
-        Assert.That(response.OutputItems, Has.Count.EqualTo(2));
-        Assert.That(response.OutputItems[0], Is.InstanceOf<WebSearchCallResponseItem>());
-        Assert.That(response.OutputItems[1], Is.InstanceOf<MessageResponseItem>());
+        List<ResponseItem> inputItems =
+        [
+            ResponseItem.CreateUserMessageItem("Searching the internet, tell me about something good that happened today.")
+        ];
 
-        MessageResponseItem message = (MessageResponseItem)response.OutputItems[1];
+        CreateResponseOptions createResponseOptions = new(TestModel.Responses, inputItems)
+        {
+            Tools = { new WebSearchPreviewTool() },
+            ToolChoice = ResponseToolChoice.CreateWebSearchChoice(),
+            IncludedProperties = { IncludedResponseProperty.WebSearchCallActionSources }
+        };
+
+        ResponseResult response = await client.CreateResponseAsync(createResponseOptions);
+        Assert.That(response.Tools.FirstOrDefault(), Is.TypeOf<WebSearchPreviewTool>());
+        Assert.That(response.OutputItems, Has.Count.GreaterThan(0));
+
+        List<WebSearchCallResponseItem> webSearchCalls = response.OutputItems.OfType<WebSearchCallResponseItem>().ToList();
+        Assert.That(webSearchCalls, Has.Count.GreaterThan(0));
+        Assert.That(webSearchCalls.All(call => call.Action != null), Is.True);
+
+        List<WebSearchCallResponseItem> searchWebSearchCalls = webSearchCalls.Where(call => call.Action is WebSearchSearchAction).ToList();
+        Assert.That(searchWebSearchCalls, Has.Count.GreaterThan(0));
+        foreach (WebSearchCallResponseItem call in searchWebSearchCalls)
+        {
+            WebSearchSearchAction searchAction = (WebSearchSearchAction)call.Action;
+            Assert.That(searchAction.Queries, Has.Count.GreaterThan(0));
+            Assert.That(searchAction.Sources, Has.Count.GreaterThan(0));
+        }
+
+        MessageResponseItem message = response.OutputItems.Last() as MessageResponseItem;
+        Assert.That(message, Is.Not.Null);
         Assert.That(message.Content, Has.Count.GreaterThan(0));
         Assert.That(message.Content[0].Kind, Is.EqualTo(ResponseContentPartKind.OutputText));
         Assert.That(message.Content[0].Text, Is.Not.Null.And.Not.Empty);
         Assert.That(message.Content[0].OutputTextAnnotations, Has.Count.GreaterThan(0));
-
-        Assert.That(response.Tools.FirstOrDefault(), Is.TypeOf<WebSearchPreviewTool>());
     }
 
     [RecordedTest]
     public async Task WebSearchCallStreaming()
     {
-        ResponsesClient client = TestEnvironment.GetTestClient<ResponsesClient>();
+        ResponsesClient client = GetProxiedResponsesClient();
 
-        const string message = "Searching the internet, what's the weather like in San Francisco?";
+        List<ResponseItem> inputItems =
+        [
+            ResponseItem.CreateUserMessageItem("Searching the internet, tell me about something good that happened today.")
+        ];
 
-        CreateResponseOptions responseOptions = new([ResponseItem.CreateUserMessageItem(message)])
+        CreateResponseOptions createResponseOptions = new(TestModel.Responses, inputItems)
         {
             Tools =
             {
-                ResponseTool.CreateWebSearchTool(
-                    userLocation: WebSearchToolLocation.CreateApproximateLocation(city: "San Francisco"),
-                    searchContextSize: WebSearchToolContextSize.Low)
+                new WebSearchTool()
+                {
+                    UserLocation = new WebSearchToolApproximateLocation() { City = "Redmond", Region = "Washington", Country = "US" },
+                    SearchContextSize = WebSearchToolContextSize.Low
+                }
             },
+            ToolChoice = ResponseToolChoice.CreateWebSearchChoice(),
             StreamingEnabled = true,
         };
 
@@ -1111,8 +1702,7 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
         int completedCount = 0;
         bool gotFinishedSearchItem = false;
 
-        await foreach (StreamingResponseUpdate update
-            in client.CreateResponseStreamingAsync(responseOptions))
+        await foreach (StreamingResponseUpdate update in client.CreateResponseStreamingAsync(createResponseOptions))
         {
             if (update is StreamingResponseWebSearchCallInProgressUpdate searchCallInProgressUpdate)
             {
@@ -1154,6 +1744,144 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
         Assert.That(inProgressCount, Is.EqualTo(1));
         Assert.That(completedCount, Is.EqualTo(1));
         Assert.That(searchItemId, Is.Not.Null.And.Not.Empty);
+    }
+
+    [RecordedTest]
+    [TestCase("CreateFile")]
+    [TestCase("UpdateFile")]
+    [TestCase("DeleteFile")]
+    public async Task ApplyPatchToolWorks(string testCase)
+    {
+        ResponsesClient client = GetProxiedResponsesClient();
+
+        string instructions = "You are a patch assistant. When the user requests file edits, respond by calling the apply_patch tool with the smallest valid set of operations.";
+
+        string prompt = testCase switch
+        {
+            "CreateFile" =>
+                """
+                The user has the following files:
+                <BEGIN_FILES>
+                ===== src/app.py
+                print("hello")
+                <END_FILES>
+
+                Create a new file named NOTES.md with exactly these two lines:
+                review tests
+                update docs
+
+                Do not modify any existing files.
+                """,
+            "UpdateFile" =>
+                """
+                The user has the following files:
+                < BEGIN_FILES >
+                ===== lib/fib.py
+                def fib(n):
+                    if n <= 1:
+                        return n
+                    return fib(n - 1) + fib(n - 2)
+                < END_FILES >
+
+                Rename fib() to fibonacci() in lib / fib.py only.
+                """,
+            "DeleteFile" =>
+                """
+                The user has the following files:
+                < BEGIN_FILES >
+                ===== obsolete.txt
+                This file is obsolete and can be removed.
+                ===== src/app.py
+                print("hello")
+                < END_FILES >
+
+                Delete obsolete.txt and do not modify any other files.
+                """,
+            _ => string.Empty
+        };
+
+        Assert.That(prompt, Is.Not.Null.Or.Empty);
+
+        IList<ResponseItem> inputItems =
+        [
+            ResponseItem.CreateDeveloperMessageItem(instructions),
+            ResponseItem.CreateUserMessageItem(prompt),
+        ];
+
+        CreateResponseOptions responseOptions = new("gpt-5.1", inputItems)
+        {
+            Tools = { ResponseTool.CreateApplyPatchTool() },
+            ToolChoice = ResponseToolChoice.CreateRequiredChoice(),
+        };
+
+        ResponseResult response = await client.CreateResponseAsync(responseOptions);
+        Assert.That(response.OutputItems, Is.Not.Null.And.Not.Empty);
+        Assert.That(response.Tools.FirstOrDefault(), Is.TypeOf<ApplyPatchTool>());
+
+        List<ApplyPatchCallItem> applyPatchCalls = response.OutputItems.OfType<ApplyPatchCallItem>().ToList();
+        Assert.That(applyPatchCalls, Has.Count.GreaterThan(0));
+        Assert.That(applyPatchCalls.All(item => !string.IsNullOrEmpty(item.CallId)), Is.True);
+        Assert.That(applyPatchCalls.All(item => item.Status.HasValue), Is.True);
+
+        switch (testCase)
+        {
+            case "CreateFile":
+                {
+                    ApplyPatchCreateFileOperation createFileOperation = applyPatchCalls
+                        .Select(item => item.Operation)
+                        .OfType<ApplyPatchCreateFileOperation>()
+                        .FirstOrDefault();
+                    Assert.That(createFileOperation, Is.Not.Null);
+                    Assert.That(createFileOperation.FilePath, Does.EndWith("NOTES.md").IgnoreCase);
+                    Assert.That(createFileOperation.Diff, Does.Contain("review tests"));
+                    Assert.That(createFileOperation.Diff, Does.Contain("update docs"));
+                    break;
+                }
+            case "UpdateFile":
+                {
+                    ApplyPatchUpdateFileOperation updateFileOperation = applyPatchCalls
+                        .Select(item => item.Operation)
+                        .OfType<ApplyPatchUpdateFileOperation>()
+                        .FirstOrDefault();
+                    Assert.That(updateFileOperation, Is.Not.Null);
+                    Assert.That(updateFileOperation.FilePath, Does.EndWith("lib/fib.py").IgnoreCase);
+                    Assert.That(updateFileOperation.Diff, Does.Contain("return fib(n - 1) + fib(n - 2)"));
+                    Assert.That(updateFileOperation.Diff, Does.Contain("return fibonacci(n - 1) + fibonacci(n - 2)"));
+                    break;
+                }
+            case "DeleteFile":
+                {
+                    ApplyPatchDeleteFileOperation deleteFileOperation = applyPatchCalls
+                        .Select(item => item.Operation)
+                        .OfType<ApplyPatchDeleteFileOperation>()
+                        .FirstOrDefault();
+                    Assert.That(deleteFileOperation, Is.Not.Null);
+                    Assert.That(deleteFileOperation.FilePath, Does.EndWith("obsolete.txt").IgnoreCase);
+                    break;
+                }
+            default:
+                {
+                    Assert.Fail();
+                    break;
+                }
+        }
+
+        responseOptions.PreviousResponseId = response.Id;
+        responseOptions.ToolChoice = ResponseToolChoice.CreateAutoChoice();
+        responseOptions.InputItems.Clear();
+
+        foreach (ApplyPatchCallItem applyPatchCall in applyPatchCalls)
+        {
+            responseOptions.InputItems.Add(new ApplyPatchCallOutputItem(applyPatchCall.CallId, ApplyPatchCallOutputStatus.Completed));
+        }
+
+        ResponseResult followUp = await client.CreateResponseAsync(responseOptions);
+        MessageResponseItem assistantMessage = followUp.OutputItems.OfType<MessageResponseItem>().LastOrDefault();
+        Assert.That(assistantMessage, Is.Not.Null);
+        Assert.That(assistantMessage.Status, Is.EqualTo(MessageStatus.Completed));
+        Assert.That(assistantMessage.Content, Has.Count.GreaterThan(0));
+        Assert.That(assistantMessage.Content[0].Kind, Is.EqualTo(ResponseContentPartKind.OutputText));
+        Assert.That(assistantMessage.Content[0].Text, Is.Not.Null.And.Not.Empty);
     }
 
     private List<string> FileIdsToDelete = [];
@@ -1225,4 +1953,28 @@ public partial class ResponsesToolTests : OpenAIRecordedTestBase
             }
         }
     }
+
+    private static readonly string s_GetWeatherAtLocationToolName = "get_weather_at_location";
+    private static readonly FunctionTool s_GetWeatherAtLocationTool = new(
+        functionName: s_GetWeatherAtLocationToolName,
+        functionParameters: BinaryData.FromBytes("""
+            {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string"
+                    },
+                    "unit": {
+                        "type": "string",
+                        "enum": ["C", "F", "K"]
+                    }
+                },
+                "required": ["location", "unit"],
+                "additionalProperties": false
+            }
+            """u8.ToArray()),
+        strictModeEnabled: true)
+    {
+        FunctionDescription = "Gets the weather at a specified location, optionally specifying units for temperature",
+    };
 }

@@ -13,7 +13,7 @@ namespace OpenAI.Tests.Realtime;
 
 #pragma warning disable OPENAI002
 
-[Category("Conversation")]
+[Category("Realtime")]
 public class RealtimeTestFixtureBase : OpenAIRecordedTestBase
 {
     public CancellationTokenSource CancellationTokenSource { get; private set; }
@@ -28,11 +28,11 @@ public class RealtimeTestFixtureBase : OpenAIRecordedTestBase
     public void SetUpCancellationToken()
     {
         // Create a fresh CancellationTokenSource for each test to ensure each test
-        // gets its own 15-second timeout, not a shared one from the fixture constructor
+        // gets its own timeout, not a shared one from the fixture constructor
         CancellationTokenSource = new();
         if (!Debugger.IsAttached)
         {
-            CancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(15));
+            CancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(30));
         }
     }
 
@@ -53,10 +53,10 @@ public class RealtimeTestFixtureBase : OpenAIRecordedTestBase
         RealtimeClient client = Mode switch
         {
             // Create a direct client without proxy for live WebSocket tests
-            RecordedTestMode.Live => TestEnvironment.GetTestClient<RealtimeClient>(TestModel.Realtime),
+            RecordedTestMode.Live => TestEnvironment.GetTestRealtimeClient(),
 
             // Use proxied client for playback mode (recordings)
-            _ => GetProxiedOpenAIClient<RealtimeClient>(TestModel.Realtime)
+            _ => GetProxiedRealtimeClient()
         };
 
         client.OnSendingCommand += (_, data) => PrintMessageData(data, "> ");

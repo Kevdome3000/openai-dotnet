@@ -1,7 +1,3 @@
-using Microsoft.ClientModel.TestFramework;
-using NUnit.Framework;
-using OpenAI.Files;
-using OpenAI.Tests.Utility;
 using System;
 using System.ClientModel;
 using System.ClientModel.Primitives;
@@ -9,6 +5,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.ClientModel.TestFramework;
+using NUnit.Framework;
+using OpenAI.Files;
+using OpenAI.Tests.Utility;
 
 namespace OpenAI.Tests.Files;
 
@@ -27,14 +27,20 @@ public class FilesTests : OpenAIRecordedTestBase
     }
 
     [OneTimeTearDown]
-    public void TearDown()
+    public async Task OneTimeTearDown()
     {
+        // Skip resource cleanup in Playback mode; no live resources were created.
+        if (Mode == RecordedTestMode.Playback)
+        {
+            return;
+        }
+
         OpenAIFileClient client = GetProxiedOpenAIClient<OpenAIFileClient>();
 
         RequestOptions noThrowOptions = new() { ErrorOptions = ClientErrorBehaviors.NoThrow };
         foreach (string fileId in FileIdsForCleanup)
         {
-            _ = client.DeleteFile(fileId, noThrowOptions);
+            _ = await client.DeleteFileAsync(fileId, noThrowOptions);
         }
     }
 
@@ -176,13 +182,11 @@ public class FilesTests : OpenAIRecordedTestBase
 
             long expectedSize = new FileInfo(path).Length;
             long unixTime2024 = (new DateTimeOffset(2024, 01, 01, 0, 0, 0, TimeSpan.Zero)).ToUnixTimeSeconds();
-            string expectedFilename = (fileSourceKind == FileSourceKind.UsingFilePath) ? path : filename;
-
             Assert.That(fileInfo, Is.Not.Null);
             Assert.That(fileInfo.Id, Is.Not.Null.And.Not.Empty);
             Assert.That(fileInfo.SizeInBytes, Is.EqualTo(expectedSize));
             Assert.That(fileInfo.CreatedAt.ToUnixTimeSeconds(), Is.GreaterThan(unixTime2024));
-            Assert.That(fileInfo.Filename, Is.EqualTo(expectedFilename));
+            Assert.That(fileInfo.Filename, Is.EqualTo(filename).IgnoreCase);
             Assert.That(fileInfo.Purpose, Is.EqualTo(FilePurpose.Vision));
 #pragma warning disable CS0618
             Assert.That(fileInfo.Status, Is.Not.EqualTo(default(FileStatus)));

@@ -1,7 +1,3 @@
-/*
- * This file was automatically generated from an OpenAPI .yaml file.
- * Edits made directly to this file will be lost.
- */
 
 import "../files";
 
@@ -9,6 +5,18 @@ using Http;
 using TypeSpec.OpenAPI;
 
 namespace OpenAI;
+
+model UploadsError {
+  code: string | null;
+  message: string;
+  param: string | null;
+  type: string;
+}
+
+@error
+model UploadsErrorResponse {
+  error: UploadsError;
+}
 
 model CreateUploadRequest {
   /** The name of the file to upload. */

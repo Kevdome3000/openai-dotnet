@@ -6,15 +6,22 @@
       "RequestHeaders": {
         "Accept": "application/json, text/event-stream",
         "Authorization": "Sanitized",
-        "Content-Length": "245",
+        "Content-Length": "425",
         "Content-Type": "application/json",
-        "User-Agent": "OpenAI/2.6.0 (.NET 9.0.10; Darwin 25.0.0 Darwin Kernel Version 25.0.0: Wed Sep 17 21:42:08 PDT 2025; root:xnu-12377.1.9~141/RELEASE_ARM64_T8132)"
+        "User-Agent": "OpenAI/2.14.0 (.NET 10.0.12; Microsoft Windows 10.0.26200)"
       },
       "RequestBody": {
         "model": "gpt-4o-mini",
         "tools": [
           {
-            "type": "web_search"
+            "type": "web_search",
+            "user_location": {
+              "type": "approximate",
+              "country": "US",
+              "region": "Washington",
+              "city": "Redmond"
+            },
+            "search_context_size": "low"
           }
         ],
         "tool_choice": {
@@ -27,19 +34,27 @@
             "content": [
               {
                 "type": "input_text",
-                "text": "Searching the internet, what's the weather like in Seattle?"
+                "text": "Searching the internet, tell me about something good that happened today."
               }
             ]
           }
+        ],
+        "include": [
+          "web_search_call.action.sources"
         ]
       },
       "StatusCode": 200,
       "ResponseHeaders": {
+        "Access-Control-Expose-Headers": [
+          "X-Request-ID",
+          "CF-Ray",
+          "CF-Ray"
+        ],
         "Alt-Svc": "h3=\":443\"",
-        "cf-cache-status": "DYNAMIC",
-        "CF-RAY": "99c97c7a5dc1168b-DFW",
+        "CF-Cache-Status": "DYNAMIC",
+        "CF-Ray": "a3b327edffce755d-SEA",
         "Connection": "keep-alive",
-        "Content-Length": "4535",
+        "Content-Length": "7338",
         "Content-Type": "application/json",
         "Date": "Sanitized",
         "openai-organization": "Sanitized",
@@ -47,42 +62,101 @@
         "openai-project": "Sanitized",
         "openai-version": "2020-10-01",
         "Server": "cloudflare",
-        "Set-Cookie": [
-          "Sanitized",
-          "Sanitized"
-        ],
         "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
         "X-Content-Type-Options": "nosniff",
-        "x-envoy-upstream-service-time": "2419",
         "X-Request-ID": "Sanitized"
       },
       "ResponseBody": {
-        "id": "resp_04ca51c04ed6dd5f0069127ba8445881929372ffd11e707a65",
+        "id": "resp_0559af58efd2fabc006aa8829be95887d0a0bb30de8f3ec430",
         "object": "response",
-        "created_at": 1762818984,
+        "created_at": 1789428380,
         "status": "completed",
         "background": false,
         "billing": {
           "payer": "developer"
         },
+        "completed_at": 1789428382,
         "error": null,
+        "frequency_penalty": 0.0,
         "incomplete_details": null,
         "instructions": null,
         "max_output_tokens": null,
         "max_tool_calls": null,
         "model": "gpt-4o-mini-2024-07-18",
+        "moderation": null,
         "output": [
           {
-            "id": "ws_04ca51c04ed6dd5f0069127ba85b488192aadb76846aeeef8d",
+            "id": "ws_0559af58efd2fabc006aa8829c1ca487d09f7b9f7c103cbddf",
             "type": "web_search_call",
             "status": "completed",
             "action": {
               "type": "search",
-              "query": "Searching the internet, what's the weather like in Seattle?"
+              "queries": [
+                "Searching the internet, tell me about something good that happened today."
+              ],
+              "query": "Searching the internet, tell me about something good that happened today.",
+              "sources": [
+                {
+                  "type": "url",
+                  "url": "https://www.kiowacountypress.net/content/daily-audio-newscast-september-14-2026?utm_source=openai"
+                },
+                {
+                  "type": "url",
+                  "url": "https://www.almanac.com/kids/calendar/date/2026-09-14?utm_source=openai"
+                },
+                {
+                  "type": "url",
+                  "url": "https://www.democracynow.org/2026/9/14/headlines?utm_source=openai"
+                },
+                {
+                  "type": "url",
+                  "url": "https://www.wknofm.org/podcast/wkno-daily/2026-09-14/wkno-daily-newscast-monday-september-14-2026?utm_source=openai"
+                },
+                {
+                  "type": "url",
+                  "url": "https://www.vaticannews.va/es/evangelio-de-hoy/2026/09/14.html?utm_source=openai"
+                },
+                {
+                  "type": "url",
+                  "url": "https://www.vaticannews.va/vi/loi-chua-hang-ngay/2026/09/14.html?utm_source=openai"
+                },
+                {
+                  "type": "url",
+                  "url": "https://roserambles.org/2026/09/14/restored-republic-via-a-gcr-as-of-september-14-2026/?utm_source=openai"
+                },
+                {
+                  "type": "url",
+                  "url": "https://www.theguardian.com/world/2026/sep/14/all?utm_source=openai"
+                },
+                {
+                  "type": "url",
+                  "url": "https://www.theguardian.com/us-news/2026/sep/14/all?utm_source=openai"
+                },
+                {
+                  "type": "url",
+                  "url": "https://savedelete.com/news/archive/2026/09/14/?utm_source=openai"
+                },
+                {
+                  "type": "url",
+                  "url": "https://www.wusf.org/2026-09-14/morning-news-brief?utm_source=openai"
+                },
+                {
+                  "type": "url",
+                  "url": "https://www.kunc.org/2026-09-14/morning-news-brief?utm_source=openai"
+                },
+                {
+                  "type": "url",
+                  "url": "https://www.axios.com/newsletters/axios-am-68956162-ed74-42e1-a892-ae3da8e7d74f?utm_source=openai"
+                },
+                {
+                  "type": "url",
+                  "url": "https://www.lemonde.fr/en/economy/article/2026/09/14/trump-rejects-pause-in-ai-race-citing-competition-from-china_6757508_19.html?utm_source=openai"
+                }
+              ]
             }
           },
           {
-            "id": "msg_04ca51c04ed6dd5f0069127ba8ffec8192911fceb7f4be4330",
+            "id": "msg_0559af58efd2fabc006aa8829d101c87d0bf53acef60d4783a",
             "type": "message",
             "status": "completed",
             "content": [
@@ -91,31 +165,40 @@
                 "annotations": [
                   {
                     "type": "url_citation",
-                    "end_index": 1342,
-                    "start_index": 1223,
-                    "title": "Seattle Weather in November 2025 | United States Averages | Weather-2-Visit",
-                    "url": "https://www.weather2visit.com/north-america/united-states/seattle-november.htm?utm_source=openai"
+                    "end_index": 810,
+                    "start_index": 698,
+                    "title": "\uD83D\uDEA6 Axios AM: Hitting AI brakes",
+                    "url": "https://www.axios.com/newsletters/axios-am-68956162-ed74-42e1-a892-ae3da8e7d74f?utm_source=openai"
                   },
                   {
                     "type": "url_citation",
-                    "end_index": 1611,
-                    "start_index": 1480,
-                    "title": "West Coast watches for La Niña",
-                    "url": "https://www.axios.com/local/seattle/2025/09/04/la-nina-west-coast-winter-weather-seattle-san-diego?utm_source=openai"
+                    "end_index": 960,
+                    "start_index": 830,
+                    "title": "\uD83D\uDEA6 Axios AM: Hitting AI brakes",
+                    "url": "https://www.axios.com/newsletters/axios-am-68956162-ed74-42e1-a892-ae3da8e7d74f?utm_source=openai"
+                  },
+                  {
+                    "type": "url_citation",
+                    "end_index": 1209,
+                    "start_index": 998,
+                    "title": "Trump rejects pause in AI race citing competition from China",
+                    "url": "https://www.lemonde.fr/en/economy/article/2026/09/14/trump-rejects-pause-in-ai-race-citing-competition-from-china_6757508_19.html?utm_source=openai"
                   }
                 ],
                 "logprobs": [],
-                "text": "As of 3:56 PM PST on Monday, November 10, 2025, the weather in Seattle is cloudy with a temperature of 58°F (14°C).\n\n## Weather for Seattle, WA:\nCurrent Conditions: Cloudy, 58°F (14°C)\n\nDaily Forecast:\n* Monday, November 10: Low: 45°F (7°C), High: 62°F (16°C), Description: Mostly cloudy\n* Tuesday, November 11: Low: 46°F (8°C), High: 54°F (12°C), Description: Times of clouds and sun\n* Wednesday, November 12: Low: 49°F (9°C), High: 55°F (13°C), Description: Cloudy with a couple of showers\n* Thursday, November 13: Low: 44°F (6°C), High: 52°F (11°C), Description: Cloudy with a bit of rain; winds gusting to 65 kph in the afternoon\n* Friday, November 14: Low: 45°F (7°C), High: 50°F (10°C), Description: Breezy in the morning; cloudy with a couple of showers\n* Saturday, November 15: Low: 47°F (9°C), High: 56°F (14°C), Description: Cloudy and not as cool; an afternoon shower in the area\n* Sunday, November 16: Low: 43°F (6°C), High: 53°F (12°C), Description: Rain\n\n\nIn November, Seattle typically experiences cooler temperatures and increased rainfall. The average high temperature is around 50°F (10°C), with lows near 40°F (4°C). The city averages about 150 mm (5.9 inches) of rainfall over 17 days during the month. ([weather2visit.com](https://www.weather2visit.com/north-america/united-states/seattle-november.htm?utm_source=openai))\n\nAdditionally, Seattle is currently monitoring a developing La Niña event, which could lead to colder and wetter conditions this winter. ([axios.com](https://www.axios.com/local/seattle/2025/09/04/la-nina-west-coast-winter-weather-seattle-san-diego?utm_source=openai)) "
+                "text": "On September 13, 2026, leaders from major AI labs—including Anthropic, SpaceXAI, OpenAI, and Google DeepMind—collectively called for a slowdown in AI development. This rare industry unity was prompted by concerns over potential catastrophic scenarios arising from rapid AI progress. Anthropic CEO Dario Amodei initiated the call, warning that unchecked AI advancements could lead to significant risks within six months. His remarks were echoed by top executives such as Elon Musk, Sam Altman, and Demis Hassabis, who emphasized prioritizing safety over growth. This collective stance reflects growing public concern and legislative pressures regarding the unchecked development of AI technologies. ([axios.com](https://www.axios.com/newsletters/axios-am-68956162-ed74-42e1-a892-ae3da8e7d74f?utm_source=openai))\n\n\n## Highlights:\n- [\uD83D\uDEA6 Axios AM: Hitting AI brakes](https://www.axios.com/newsletters/axios-am-68956162-ed74-42e1-a892-ae3da8e7d74f?utm_source=openai), Published on Sunday, September 13\n- [Trump rejects pause in AI race citing competition from China](https://www.lemonde.fr/en/economy/article/2026/09/14/trump-rejects-pause-in-ai-race-citing-competition-from-china_6757508_19.html?utm_source=openai), Published on Monday, September 14 "
               }
             ],
             "role": "assistant"
           }
         ],
         "parallel_tool_calls": true,
+        "presence_penalty": 0.0,
         "previous_response_id": null,
         "prompt_cache_key": null,
-        "prompt_cache_retention": null,
+        "prompt_cache_retention": "in_memory",
         "reasoning": {
+          "context": null,
           "effort": null,
           "summary": null
         },
@@ -132,16 +215,37 @@
         "tool_choice": {
           "type": "web_search_preview"
         },
+        "tool_usage": {
+          "image_gen": {
+            "input_tokens": 0,
+            "input_tokens_details": {
+              "image_tokens": 0,
+              "text_tokens": 0
+            },
+            "output_tokens": 0,
+            "output_tokens_details": {
+              "image_tokens": 0,
+              "text_tokens": 0
+            },
+            "total_tokens": 0
+          },
+          "web_search": {
+            "num_requests": 1
+          }
+        },
         "tools": [
           {
             "type": "web_search",
-            "filters": null,
-            "search_context_size": "medium",
+            "return_token_budget": "default",
+            "search_content_types": [
+              "text"
+            ],
+            "search_context_size": "low",
             "user_location": {
               "type": "approximate",
-              "city": null,
+              "city": "Redmond",
               "country": "US",
-              "region": null,
+              "region": "Washington",
               "timezone": null
             }
           }
@@ -150,15 +254,16 @@
         "top_p": 1.0,
         "truncation": "disabled",
         "usage": {
-          "input_tokens": 8508,
+          "input_tokens": 8511,
           "input_tokens_details": {
+            "cache_write_tokens": 0,
             "cached_tokens": 0
           },
-          "output_tokens": 470,
+          "output_tokens": 308,
           "output_tokens_details": {
             "reasoning_tokens": 0
           },
-          "total_tokens": 8978
+          "total_tokens": 8819
         },
         "user": null,
         "metadata": {}
@@ -166,6 +271,6 @@
     }
   ],
   "Variables": {
-    "OPEN-API-KEY": "api-key"
+    "OPENAI_API_KEY": "api-key"
   }
 }

@@ -1,7 +1,3 @@
-/*
- * This file was automatically generated from an OpenAPI .yaml file.
- * Edits made directly to this file will be lost.
- */
 
 import "../assistants";
 
@@ -87,6 +83,7 @@ union IncludedRunStepProperty {
   file_search_result_content: "step_details.tool_calls[*].file_search.results[*].content",
 }
 
-enum RunStepDetailsToolCallsFileSearchResultObjectContentType {
-  text,
+union RunStepDetailsToolCallsFileSearchResultObjectContentType {
+  string,
+  text: "text",
 }

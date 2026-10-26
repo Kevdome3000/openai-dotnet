@@ -8,15 +8,15 @@
 using OpenAI.Responses;
 
 string key = Environment.GetEnvironmentVariable("OPENAI_API_KEY")!;
-ResponsesClient client = new(model: "gpt-5.2", apiKey: key);
+ResponsesClient client = new(key);
 
-CreateResponseOptions options = new();
+CreateResponseOptions options = new() { Model = "gpt-5.2" };
 options.Tools.Add(
     ResponseTool.CreateMcpTool(
         serverLabel: "deepwiki",
         serverUri: new Uri("https://mcp.deepwiki.com/mcp"),
         allowedTools: new McpToolFilter() { ToolNames = { "ask_question", "read_wiki_structure" } },
-        toolCallApprovalPolicy: new McpToolCallApprovalPolicy(GlobalMcpToolCallApprovalPolicy.NeverRequireApproval)
+        toolCallApprovalPolicy: new McpToolCallApprovalPolicy(DefaultMcpToolCallApprovalPolicy.NeverRequireApproval)
     )
 );
 options.InputItems.Add(

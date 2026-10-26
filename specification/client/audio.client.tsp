@@ -9,10 +9,31 @@ using Azure.ClientGenerator.Core;
 
 @@visibility(CreateTranslationResponseVerboseJson.segments, Lifecycle.Read);
 
+@@visibility(CreateTranscriptionResponseDiarizedJson.segments, Lifecycle.Read);
+
+@@alternateType(CreateTranscriptionResponseVerboseJson.usage, CreateTranscriptionResponseJsonUsage);
+
 @@clientName(createSpeech, "GenerateSpeech");
+@@clientName(createSpeechStreaming, "GenerateSpeechStreaming");
 @@clientName(createTranscription, "TranscribeAudio");
+@@clientName(createTranscriptionStreaming, "TranscribeAudioStreaming");
 @@clientName(createTranslation, "TranslateAudio");
 
 @@clientLocation(createSpeech, "Audio");
+@@clientLocation(createSpeechStreaming, "Audio");
 @@clientLocation(createTranscription, "Audio");
+@@clientLocation(createTranscriptionStreaming, "Audio");
 @@clientLocation(createTranslation, "Audio");
+@@clientLocation(listVoiceConsents, "Audio");
+@@clientLocation(createVoiceConsent, "Audio");
+@@clientLocation(deleteVoiceConsent, "Audio");
+@@clientLocation(getVoiceConsent, "Audio");
+@@clientLocation(updateVoiceConsent, "Audio");
+@@clientLocation(createVoice, "Audio");
+
+@@convenientAPI(listVoiceConsents, false);
+@@convenientAPI(createVoiceConsent, false);
+@@convenientAPI(deleteVoiceConsent, false);
+@@convenientAPI(getVoiceConsent, false);
+@@convenientAPI(updateVoiceConsent, false);
+@@convenientAPI(createVoice, false);
